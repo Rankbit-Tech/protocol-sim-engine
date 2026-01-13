@@ -3,8 +3,10 @@
 **Open-Source Industrial Protocol & Device Simulation Platform**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://hub.docker.com)
+[![Docker](https://img.shields.io/docker/v/developeryashsolanki/protocol-sim-engine?label=docker)](https://hub.docker.com/r/developeryashsolanki/protocol-sim-engine)
+[![Docker Pulls](https://img.shields.io/docker/pulls/developeryashsolanki/protocol-sim-engine)](https://hub.docker.com/r/developeryashsolanki/protocol-sim-engine)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Image Size](https://img.shields.io/docker/image-size/developeryashsolanki/protocol-sim-engine/latest)](https://hub.docker.com/r/developeryashsolanki/protocol-sim-engine)
 
 Simulate industrial devices and protocols without hardware. Perfect for development, testing, training, and prototyping IoT/IIoT applications.
 
@@ -12,34 +14,196 @@ Simulate industrial devices and protocols without hardware. Perfect for developm
 
 ### Run with Docker (Recommended)
 
-```bash
-# Pull the image (when available on Docker Hub)
-docker pull universal-simulation-engine:latest
+The easiest way to get started is using the pre-built Docker image from Docker Hub:
 
-# Run with example configuration
-docker run --rm \
-  -v $(pwd)/config.yml:/config/factory.yml \
-  -p 15000-15010:15000-15010 \
+```bash
+# Pull the latest image
+docker pull developeryashsolanki/protocol-sim-engine:latest
+
+# Run with default configuration (3 Modbus devices)
+docker run -d \
+  --name protocol-sim \
   -p 8080:8080 \
-  universal-simulation-engine:latest
+  -p 15000-15002:15000-15002 \
+  developeryashsolanki/protocol-sim-engine:latest
+
+# Access the API
+curl http://localhost:8080/health
+
+# View API documentation
+open http://localhost:8080/docs
 ```
 
-### Build from Source
+**What you get out of the box:**
+
+- ✅ 3 pre-configured Modbus TCP devices
+- ✅ Temperature sensor on port 15000
+- ✅ Pressure transmitter on port 15001
+- ✅ Motor drive (VFD) on port 15002
+- ✅ REST API on port 8080
+- ✅ Interactive API docs at `/docs`
+- ✅ Health monitoring at `/health`
+
+### Run with Custom Configuration
+
+```bash
+# Run with your own config file
+docker run -d \
+  --name protocol-sim \
+  -v $(pwd)/my-config.yml:/config/factory.yml \
+  -p 8080:8080 \
+  -p 15000-15010:15000-15010 \
+  developeryashsolanki/protocol-sim-engine:latest
+```
+
+### Available Docker Tags
+
+- `latest` - Latest stable release
+- `0.1.0` - Specific version (recommended for production)
+- `0.1` - Minor version (receives patch updates)
+
+```bash
+# Use specific version for production
+docker pull developeryashsolanki/protocol-sim-engine:0.1.0
+```
+
+### Build from Source (Optional)
+
+Only needed if you want to modify the code:
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/universal-simulation-engine.git
-cd universal-simulation-engine
+git clone https://github.com/Rankbit-Tech/protocol-sim-engine.git
+cd protocol-sim-engine
 
 # Build Docker image
-docker build -t universal-simulation-engine:latest .
+docker build -t protocol-sim-engine:dev .
 
-# Run with example config
-docker run --rm \
-  -v $(pwd)/examples/configs/simple_factory.yml:/config/factory.yml \
-  -p 15000-15002:15000-15002 \
+# Run your custom build
+docker run -d \
+  --name protocol-sim-dev \
   -p 8080:8080 \
-  universal-simulation-engine:latest
+  -p 15000-15002:15000-15002 \
+  protocol-sim-engine:dev
+```
+
+## 🐳 Docker Usage Guide
+
+### Basic Commands
+
+```bash
+# Pull latest image
+docker pull developeryashsolanki/protocol-sim-engine:latest
+
+# Start container
+docker run -d --name protocol-sim \
+  -p 8080:8080 -p 15000-15002:15000-15002 \
+  developeryashsolanki/protocol-sim-engine:latest
+
+# View logs
+docker logs protocol-sim
+
+# Follow logs in real-time
+docker logs -f protocol-sim
+
+# Stop container
+docker stop protocol-sim
+
+# Start stopped container
+docker start protocol-sim
+
+# Remove container
+docker rm protocol-sim
+
+# View container stats
+docker stats protocol-sim
+```
+
+### Docker Compose
+
+Create `docker-compose.yml`:
+
+```yaml
+version: "3.8"
+
+services:
+  protocol-sim:
+    image: developeryashsolanki/protocol-sim-engine:latest
+    container_name: protocol-sim
+    ports:
+      - "8080:8080"
+      - "15000-15010:15000-15010"
+    volumes:
+      - ./config.yml:/config/factory.yml
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+```
+
+Run with Docker Compose:
+
+```bash
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+### Production Deployment
+
+For production environments:
+
+```bash
+# Use specific version tag
+docker run -d \
+  --name protocol-sim-prod \
+  --restart=always \
+  --memory="1g" \
+  --cpus="2" \
+  -p 8080:8080 \
+  -p 15000-15010:15000-15010 \
+  -v /opt/config/factory.yml:/config/factory.yml \
+  -v /var/log/protocol-sim:/app/logs \
+  developeryashsolanki/protocol-sim-engine:0.1.0
+
+# Check health
+curl http://localhost:8080/health
+```
+
+### Environment Variables
+
+```bash
+# Run with environment variables
+docker run -d \
+  --name protocol-sim \
+  -e LOG_LEVEL=INFO \
+  -e TIME_ACCELERATION=1.0 \
+  -p 8080:8080 \
+  -p 15000-15002:15000-15002 \
+  developeryashsolanki/protocol-sim-engine:latest
+```
+
+### Network Configuration
+
+```bash
+# Create custom network
+docker network create industrial-net
+
+# Run on custom network
+docker run -d \
+  --name protocol-sim \
+  --network industrial-net \
+  -p 8080:8080 \
+  -p 15000-15002:15000-15002 \
+  developeryashsolanki/protocol-sim-engine:latest
 ```
 
 ## ✨ Features
@@ -118,11 +282,15 @@ industrial_protocols:
 Run:
 
 ```bash
-docker run --rm \
+docker run -d \
+  --name my-factory \
   -v $(pwd)/factory.yml:/config/factory.yml \
-  -p 15000-15002:15000-15002 \
   -p 8080:8080 \
-  universal-simulation-engine:latest
+  -p 15000-15002:15000-15002 \
+  developeryashsolanki/protocol-sim-engine:latest
+
+# Check it's running
+curl http://localhost:8080/health
 ```
 
 ### Test Modbus Connectivity
@@ -293,10 +461,11 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🔗 Links
 
+- **Docker Hub**: [developeryashsolanki/protocol-sim-engine](https://hub.docker.com/r/developeryashsolanki/protocol-sim-engine)
 - **Documentation**: [docs/](docs/)
 - **Examples**: [examples/](examples/)
-- **Issue Tracker**: GitHub Issues
-- **Docker Hub**: Coming soon
+- **GitHub**: [Rankbit-Tech/protocol-sim-engine](https://github.com/Rankbit-Tech/protocol-sim-engine)
+- **Issue Tracker**: [GitHub Issues](https://github.com/Rankbit-Tech/protocol-sim-engine/issues)
 
 ## 🙏 Acknowledgments
 
