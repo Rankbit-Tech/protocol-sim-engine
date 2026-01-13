@@ -1,0 +1,51 @@
+# Universal Simulation Engine - Docker Compose Example
+# This file shows how to run the simulator with custom configuration
+
+version: "3.8"
+
+services:
+  # Simple factory with 3 devices
+  simple-factory:
+    build: .
+    image: universal-simulation-engine:latest
+    container_name: simple-factory-sim
+    volumes:
+      # Mount custom configuration
+      - ./examples/configs/simple_factory.yml:/config/factory.yml:ro
+    ports:
+      # Modbus devices
+      - "15000-15002:15000-15002"
+      # HTTP API
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:8080/status', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Large factory with 50 devices (commented out by default)
+  # Uncomment to run multiple simulations simultaneously
+  # large-factory:
+  #   build: .
+  #   image: universal-simulation-engine:latest
+  #   container_name: large-factory-sim
+  #   volumes:
+  #     - ./examples/configs/large_factory.yml:/config/factory.yml:ro
+  #   ports:
+  #     # Modbus devices
+  #     - "5020-5100:5020-5100"
+  #     # HTTP API (different port to avoid conflict)
+  #     - "8081:8080"
+  #   restart: unless-stopped
+
+networks:
+  default:
+    name: simulation-network

@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Monitor - Universal Simulation Engine</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0e27;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .controls {
+            background: #1a1f3a;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        label {
+            font-weight: 600;
+            color: #a0aec0;
+        }
+
+        select, button {
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: 1px solid #4a5568;
+            background: #2d3748;
+            color: #e0e0e0;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        select:hover, button:hover {
+            background: #374151;
+            border-color: #667eea;
+        }
+
+        button.active {
+            background: #667eea;
+            border-color: #667eea;
+        }
+
+        .status-bar {
+            background: #1a1f3a;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.active {
+            background: #48bb78;
+        }
+
+        .status-dot.paused {
+            background: #f6ad55;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .data-container {
+            background: #1a1f3a;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .data-header {
+            background: #2d3748;
+            padding: 15px 20px;
+            border-bottom: 2px solid #4a5568;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .data-header h2 {
+            font-size: 1.3em;
+        }
+
+        .clear-btn {
+            padding: 8px 16px;
+            background: #e53e3e;
+            border: none;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .clear-btn:hover {
+            background: #c53030;
+        }
+
+        .data-log {
+            height: 600px;
+            overflow-y: auto;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            margin-bottom: 15px;
+            padding: 12px;
+            background: #2d3748;
+            border-left: 4px solid #667eea;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        .log-entry:hover {
+            background: #374151;
+            transform: translateX(5px);
+        }
+
+        .log-entry.new {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .log-timestamp {
+            color: #a0aec0;
+            font-size: 11px;
+            margin-bottom: 5px;
+        }
+
+        .log-device {
+            color: #667eea;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .log-data {
+            color: #e0e0e0;
+            padding-left: 10px;
+        }
+
+        .log-value {
+            color: #48bb78;
+        }
+
+        .log-register {
+            color: #f6ad55;
+        }
+
+        .data-log::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .data-log::-webkit-scrollbar-track {
+            background: #2d3748;
+        }
+
+        .data-log::-webkit-scrollbar-thumb {
+            background: #4a5568;
+            border-radius: 5px;
+        }
+
+        .data-log::-webkit-scrollbar-thumb:hover {
+            background: #667eea;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #a0aec0;
+            padding: 40px;
+            font-size: 16px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #1a1f3a;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-label {
+            color: #a0aec0;
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Real-Time Data Monitor</h1>
+        <div class="subtitle">Live Modbus TCP Data Stream</div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="refresh-rate">Refresh Rate:</label>
+            <select id="refresh-rate">
+                <option value="1000">1 second</option>
+                <option value="2000" selected>2 seconds</option>
+                <option value="5000">5 seconds</option>
+                <option value="10000">10 seconds</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label for="device-filter">Device Filter:</label>
+            <select id="device-filter">
+                <option value="all">All Devices</option>
+                <option value="temperature">Temperature Sensors</option>
+                <option value="pressure">Pressure Transmitters</option>
+                <option value="motor">Motor Drives</option>
+            </select>
+        </div>
+
+        <button id="pause-btn" class="active">⏸️ Pause</button>
+        <button id="export-btn">💾 Export Logs</button>
+    </div>
+
+    <div class="status-bar">
+        <div class="status-item">
+            <div class="status-dot active" id="status-dot"></div>
+            <span id="status-text">Streaming Active</span>
+        </div>
+        <div class="status-item">
+            <span>Updates: <strong id="update-count">0</strong></span>
+        </div>
+        <div class="status-item">
+            <span>Last Update: <strong id="last-update">--:--:--</strong></span>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card">
+            <div class="stat-label">Total Devices</div>
+            <div class="stat-value" id="total-devices">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Active Updates/min</div>
+            <div class="stat-value" id="updates-per-min">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Data Points Logged</div>
+            <div class="stat-value" id="data-points">0</div>
+        </div>
+    </div>
+
+    <div class="data-container">
+        <div class="data-header">
+            <h2>Live Data Stream</h2>
+            <button class="clear-btn" onclick="clearLogs()">Clear Logs</button>
+        </div>
+        <div class="data-log" id="data-log">
+            <div class="no-data">Waiting for data...</div>
+        </div>
+    </div>
+
+    <script>
+        let isPaused = false;
+        let updateCount = 0;
+        let dataPoints = 0;
+        let refreshInterval = 2000;
+        let deviceFilter = 'all';
+        let updateTimer = null;
+        let logs = [];
+
+        const dataLog = document.getElementById('data-log');
+        const pauseBtn = document.getElementById('pause-btn');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const updateCountEl = document.getElementById('update-count');
+        const lastUpdateEl = document.getElementById('last-update');
+        const totalDevicesEl = document.getElementById('total-devices');
+        const updatesPerMinEl = document.getElementById('updates-per-min');
+        const dataPointsEl = document.getElementById('data-points');
+
+        // Fetch device data
+        async function fetchData() {
+            if (isPaused) return;
+
+            try {
+                const response = await fetch('/devices');
+                if (!response.ok) throw new Error('Failed to fetch devices');
+                
+                const data = await response.json();
+                const devices = data.devices || [];
+                
+                totalDevicesEl.textContent = devices.length;
+                
+                // Filter and process devices
+                const filteredDevices = devices.filter(device => {
+                    if (deviceFilter === 'all') return true;
+                    return device.device_type.includes(deviceFilter);
+                });
+
+                // Update log with new data
+                filteredDevices.forEach(device => {
+                    addLogEntry(device);
+                });
+
+                updateCount++;
+                updateCountEl.textContent = updateCount;
+                lastUpdateEl.textContent = new Date().toLocaleTimeString();
+                
+                // Calculate updates per minute (simple average)
+                updatesPerMinEl.textContent = Math.round(updateCount / ((Date.now() - startTime) / 60000));
+                
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                addErrorLog(error.message);
+            }
+        }
+
+        async function addLogEntry(device) {
+            const timestamp = new Date().toLocaleTimeString();
+            
+            // Fetch actual register data
+            let registerData = '';
+            try {
+                const response = await fetch(`/devices/${device.device_id}/data`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.registers) {
+                        registerData = formatRegisterData(data.registers, device.device_type);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching register data:', error);
+            }
+            
+            const logHtml = `
+                <div class="log-entry new">
+                    <div class="log-timestamp">${timestamp}</div>
+                    <div class="log-device">${device.device_id} (${device.device_type})</div>
+                    <div class="log-data">
+                        <div>📡 Port: <span class="log-value">${device.port}</span></div>
+                        <div>⚡ Status: <span class="log-value">${device.status}</span></div>
+                        <div>⏱️ Uptime: <span class="log-value">${device.uptime_seconds.toFixed(1)}s</span></div>
+                        ${registerData}
+                        ${device.error_count > 0 ? `<div>⚠️ Errors: <span class="log-value">${device.error_count}</span></div>` : ''}
+                    </div>
+                </div>
+            `;
+
+            if (dataLog.querySelector('.no-data')) {
+                dataLog.innerHTML = '';
+            }
+
+            dataLog.insertAdjacentHTML('afterbegin', logHtml);
+            dataPoints++;
+            dataPointsEl.textContent = dataPoints;
+
+            // Keep only last 100 entries
+            const entries = dataLog.querySelectorAll('.log-entry');
+            if (entries.length > 100) {
+                entries[entries.length - 1].remove();
+            }
+
+            // Auto-scroll to top
+            dataLog.scrollTop = 0;
+        }
+        
+        function formatRegisterData(registers, deviceType) {
+            let html = '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #4a5568;">';
+            html += '<div style="color: #f6ad55; font-weight: bold; margin-bottom: 5px;">📊 MODBUS REGISTER DATA:</div>';
+            
+            if (deviceType === 'temperature_sensor') {
+                html += `
+                    <div>🌡️ Temperature: <span class="log-value">${registers.temperature_celsius?.toFixed(2) || 'N/A'}°C</span> 
+                         <span class="log-register">[HR:${registers.temperature_raw || 0}]</span></div>
+                    <div>💧 Humidity: <span class="log-value">${registers.humidity_percent?.toFixed(2) || 'N/A'}%</span> 
+                         <span class="log-register">[HR:${registers.humidity_raw || 0}]</span></div>
+                    <div>✅ Sensor OK: <span class="log-value">${registers.sensor_healthy ? 'YES' : 'NO'}</span> 
+                         <span class="log-register">[DI:${registers.sensor_healthy ? 1 : 0}]</span></div>
+                `;
+            } else if (deviceType === 'pressure_transmitter') {
+                html += `
+                    <div>🔧 Pressure: <span class="log-value">${registers.pressure_psi?.toFixed(2) || 'N/A'} PSI</span> 
+                         <span class="log-register">[HR:${registers.pressure_raw || 0}]</span></div>
+                    <div>💨 Flow Rate: <span class="log-value">${registers.flow_rate_lpm?.toFixed(2) || 'N/A'} L/min</span> 
+                         <span class="log-register">[HR:${registers.flow_rate_raw || 0}]</span></div>
+                    <div>⚠️ High Pressure: <span class="log-value">${registers.high_pressure_alarm ? 'YES' : 'NO'}</span> 
+                         <span class="log-register">[DI:${registers.high_pressure_alarm ? 1 : 0}]</span></div>
+                    <div>⚠️ Low Flow: <span class="log-value">${registers.low_flow_alarm ? 'YES' : 'NO'}</span> 
+                         <span class="log-register">[DI:${registers.low_flow_alarm ? 1 : 0}]</span></div>
+                `;
+            } else if (deviceType === 'motor_drive') {
+                html += `
+                    <div>⚡ Speed: <span class="log-value">${registers.speed_rpm || 'N/A'} RPM</span> 
+                         <span class="log-register">[HR:${registers.speed_rpm || 0}]</span></div>
+                    <div>🔄 Torque: <span class="log-value">${registers.torque_nm?.toFixed(2) || 'N/A'} Nm</span> 
+                         <span class="log-register">[HR:${registers.torque_raw || 0}]</span></div>
+                    <div>⚡ Power: <span class="log-value">${registers.power_kw?.toFixed(2) || 'N/A'} kW</span> 
+                         <span class="log-register">[HR:${registers.power_raw || 0}]</span></div>
+                    <div>🔴 Fault Code: <span class="log-value">${registers.fault_code || 0}</span> 
+                         <span class="log-register">[HR:${registers.fault_code || 0}]</span></div>
+                `;
+            }
+            
+            html += '</div>';
+            return html;
+        }
+
+        function addErrorLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logHtml = `
+                <div class="log-entry new" style="border-left-color: #e53e3e;">
+                    <div class="log-timestamp">${timestamp}</div>
+                    <div class="log-device" style="color: #e53e3e;">⚠️ ERROR</div>
+                    <div class="log-data">${message}</div>
+                </div>
+            `;
+            
+            if (dataLog.querySelector('.no-data')) {
+                dataLog.innerHTML = '';
+            }
+            
+            dataLog.insertAdjacentHTML('afterbegin', logHtml);
+        }
+
+        function clearLogs() {
+            dataLog.innerHTML = '<div class="no-data">Logs cleared. Waiting for new data...</div>';
+            dataPoints = 0;
+            dataPointsEl.textContent = 0;
+        }
+
+        pauseBtn.addEventListener('click', () => {
+            isPaused = !isPaused;
+            if (isPaused) {
+                pauseBtn.textContent = '▶️ Resume';
+                pauseBtn.classList.remove('active');
+                statusDot.classList.remove('active');
+                statusDot.classList.add('paused');
+                statusText.textContent = 'Paused';
+                clearInterval(updateTimer);
+            } else {
+                pauseBtn.textContent = '⏸️ Pause';
+                pauseBtn.classList.add('active');
+                statusDot.classList.remove('paused');
+                statusDot.classList.add('active');
+                statusText.textContent = 'Streaming Active';
+                startUpdates();
+            }
+        });
+
+        document.getElementById('refresh-rate').addEventListener('change', (e) => {
+            refreshInterval = parseInt(e.target.value);
+            if (!isPaused) {
+                clearInterval(updateTimer);
+                startUpdates();
+            }
+        });
+
+        document.getElementById('device-filter').addEventListener('change', (e) => {
+            deviceFilter = e.target.value;
+        });
+
+        document.getElementById('export-btn').addEventListener('click', () => {
+            const logEntries = Array.from(dataLog.querySelectorAll('.log-entry')).map(entry => {
+                return entry.textContent.trim();
+            });
+            
+            const blob = new Blob([logEntries.join('\n\n')], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `data-logs-${new Date().toISOString()}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        function startUpdates() {
+            fetchData(); // Initial fetch
+            updateTimer = setInterval(fetchData, refreshInterval);
+        }
+
+        const startTime = Date.now();
+        startUpdates();
+    </script>
+</body>
+</html>

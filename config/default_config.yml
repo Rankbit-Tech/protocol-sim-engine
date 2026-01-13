@@ -1,0 +1,60 @@
+# Default Configuration for Universal Simulation Engine
+# This is the default configuration used when no custom config is provided
+
+facility:
+  name: "Default Industrial Facility"
+  description: "Example industrial facility simulation"
+  location: "Virtual Factory Floor 1"
+  shift_schedule: "24x7"
+
+simulation:
+  time_acceleration: 1.0
+  data_retention: "24h"
+  fault_injection_rate: 0.02
+
+network:
+  base_ip: "192.168.100.0/24"
+  port_ranges:
+    modbus: [15000, 15100]
+    opcua: [4840, 4940]
+    mqtt: [1883, 1883]
+    http: [8080, 8099]
+
+industrial_protocols:
+  modbus_tcp:
+    enabled: true
+    devices:
+      temperature_sensors:
+        count: 1
+        port_start: 15000
+        device_template: "industrial_temperature_sensor"
+        locations: ["line_1"]
+        update_interval: 2.0
+        data_config:
+          temperature_range: [18, 45]
+          humidity_range: [30, 80]
+          calibration_drift: 0.001
+
+      pressure_transmitters:
+        count: 1
+        port_start: 15001
+        device_template: "hydraulic_pressure_sensor"
+        locations: ["hydraulic_press_1"]
+        update_interval: 1.0
+        data_config:
+          pressure_range: [0, 300]
+          flow_range: [10, 150]
+          alarm_thresholds:
+            high_pressure: 250
+            low_flow: 20
+
+      motor_drives:
+        count: 1
+        port_start: 15002
+        device_template: "variable_frequency_drive"
+        locations: ["conveyor_1"]
+        update_interval: 0.5
+        data_config:
+          speed_range: [0, 3600]
+          torque_range: [0, 500]
+          power_range: [0, 100]

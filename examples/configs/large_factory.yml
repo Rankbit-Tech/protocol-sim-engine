@@ -1,0 +1,69 @@
+# Large Factory Configuration
+# 50 Modbus devices across different types
+
+facility:
+  name: "Large Manufacturing Facility"
+  description: "High-density simulation with 50 devices"
+  location: "Virtual Production Floor"
+  shift_schedule: "24x7"
+
+simulation:
+  time_acceleration: 1.0
+  data_retention: "24h"
+  fault_injection_rate: 0.02
+
+network:
+  base_ip: "192.168.100.0/24"
+  port_ranges:
+    modbus: [5020, 5100]
+    mqtt: [1883, 1883]
+    http: [8080, 8099]
+
+industrial_protocols:
+  modbus_tcp:
+    enabled: true
+    devices:
+      temperature_sensors:
+        count: 20
+        port_start: 5020
+        device_template: "industrial_temperature_sensor"
+        locations:
+          ["line_1", "line_2", "line_3", "paint_booth", "assembly", "warehouse"]
+        update_interval: 2.0
+        data_config:
+          temperature_range: [18, 45]
+          humidity_range: [30, 80]
+          calibration_drift: 0.001
+
+      pressure_transmitters:
+        count: 15
+        port_start: 5040
+        device_template: "hydraulic_pressure_sensor"
+        locations:
+          ["hydraulic_press_1", "hydraulic_press_2", "pneumatic_system"]
+        update_interval: 1.0
+        data_config:
+          pressure_range: [0, 300]
+          flow_range: [10, 150]
+          alarm_thresholds:
+            high_pressure: 250
+            low_flow: 20
+
+      motor_drives:
+        count: 15
+        port_start: 5055
+        device_template: "variable_frequency_drive"
+        locations:
+          [
+            "conveyor_1",
+            "conveyor_2",
+            "conveyor_3",
+            "robotic_arm_1",
+            "robotic_arm_2",
+          ]
+        update_interval: 0.5
+        data_config:
+          speed_range: [0, 3600]
+          torque_range: [0, 500]
+          power_range: [0, 100]
+          fault_codes: [0, 1, 2, 5, 8, 10]
