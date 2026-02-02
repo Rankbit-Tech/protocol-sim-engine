@@ -2,7 +2,7 @@
 
 **Complete documentation for the Universal Simulation Engine**
 
-Last Updated: January 8, 2026
+Last Updated: February 2, 2026
 
 ---
 
@@ -22,7 +22,10 @@ Last Updated: January 8, 2026
 - [Modbus TCP Protocol](protocols/modbus/README.md) - Complete Modbus implementation
   - Device types, register mappings, examples
   - Testing guide, troubleshooting
-- [MQTT Protocol](protocols/mqtt/README.md) - Coming soon
+- [MQTT Protocol](protocols/mqtt/README.md) - IoT sensor simulation
+  - Environmental sensors, energy meters, asset trackers
+  - **Built-in MQTT broker** (no external setup needed)
+  - Configurable QoS, topics, publish intervals
 - [OPC-UA Protocol](protocols/opcua/README.md) - Coming soon
 
 #### Configuration Reference
@@ -154,17 +157,21 @@ Last Updated: January 8, 2026
   - Temperature sensors, pressure transmitters, motor drives
   - Realistic data generation with industrial patterns
   - Complete register mappings and device types
+- **MQTT Protocol** - Full implementation with embedded broker
+  - Environmental sensors, smart energy meters, asset trackers
+  - **Built-in MQTT broker** (amqtt) - no external setup needed
+  - Configurable QoS levels (0, 1, 2), topic hierarchies
+  - Gateway pattern for reliable multi-device publishing
 - **Configuration System** - YAML-based configuration
-- **REST API** - 10+ endpoints for monitoring/control
+- **REST API** - 15+ endpoints for monitoring/control
 - **Web Dashboard** - Live monitoring interface
 - **Real-Time Data Monitor** - Streaming data viewer
 - **Port Management** - Automatic allocation and conflict prevention
 - **Docker Support** - Single-image deployment
-- **Testing Framework** - 25+ unit tests, integration tests
+- **Testing Framework** - Unit tests, integration tests
 
 ### 🚧 In Progress
 
-- MQTT Protocol implementation
 - OPC-UA Protocol implementation
 - Additional device templates
 - Enhanced documentation
@@ -221,4 +228,4 @@ Last Updated: January 8, 2026
 
 **Happy Simulating! 🚀**
 
-_This documentation is continuously updated. Last update: January 8, 2026_
+_This documentation is continuously updated. Last update: February 2, 2026_
