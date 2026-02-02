@@ -44,25 +44,6 @@ typing_extensions = {version = ">=4.5", markers = "python_version < \"3.13\""}
 trio = ["trio (>=0.31.0) ; python_version < \"3.10\"", "trio (>=0.32.0) ; python_version >= \"3.10\""]
 
 [[package]]
-name = "asyncio-mqtt"
-version = "0.16.2"
-description = "Idiomatic asyncio wrapper around paho-mqtt"
-optional = false
-python-versions = ">=3.7"
-groups = ["main"]
-files = [
-    {file = "asyncio_mqtt-0.16.2-py3-none-any.whl", hash = "sha256:fe70ea2c648b248779a7ff3d9218262cdd739083743dfaa7c0d52ba458a8ad71"},
-]
-
-[package.dependencies]
-paho-mqtt = ">=1.6.0"
-
-[package.extras]
-format = ["black (>=22.10.0)"]
-lint = ["mypy (>=0.991)", "ruff (>=0.0.158)", "types-paho-mqtt (>=1.6.0.1)"]
-tests = ["anyio (>=3.6.2)", "pytest (>=7.2.0)", "pytest-cov (>=4.0.0)"]
-
-[[package]]
 name = "click"
 version = "8.3.1"
 description = "Composable command line interface toolkit"
@@ -673,4 +654,4 @@ standard = ["colorama (>=0.4) ; sys_platform == \"win32\"", "httptools (>=0.6.3)
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "b04425255c2024aaebf93242c8aac9c0846c343f8436c46a793d7ac93b5690a3"
+content-hash = "64506c7a290c4715969c4865194795b48b3ca398ae026b6429c8a9ea9af68e04"

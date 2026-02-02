@@ -13,6 +13,7 @@ import structlog
 from .config_parser import IndustrialFacilityConfig
 from .port_manager import IntelligentPortManager
 from .protocols.industrial.modbus.modbus_simulator import ModbusDeviceManager
+from .protocols.industrial.mqtt.mqtt_simulator import MQTTDeviceManager
 
 logger = structlog.get_logger(__name__)
 
@@ -78,7 +79,7 @@ class SimulationOrchestrator:
     
     async def _initialize_protocol_managers(self) -> None:
         """Initialize managers for all enabled protocols."""
-        
+
         # Initialize Modbus manager if enabled
         if self.config.industrial_protocols.modbus_tcp and self.config.industrial_protocols.modbus_tcp.enabled:
             logger.info("Initializing Modbus TCP protocol manager...")
@@ -89,7 +90,20 @@ class SimulationOrchestrator:
             await modbus_manager.initialize()
             self.device_managers["modbus_tcp"] = modbus_manager
             self.active_protocols.add("modbus_tcp")
-            
+
+        # Initialize MQTT manager if enabled
+        if self.config.industrial_protocols.mqtt and self.config.industrial_protocols.mqtt.enabled:
+            logger.info("Initializing MQTT protocol manager...")
+            mqtt_manager = MQTTDeviceManager(
+                self.config.industrial_protocols.mqtt,
+                self.port_manager
+            )
+            if await mqtt_manager.initialize():
+                self.device_managers["mqtt"] = mqtt_manager
+                self.active_protocols.add("mqtt")
+            else:
+                logger.warning("MQTT manager initialization failed - MQTT devices will not be available")
+
         # TODO: Add other protocol managers here as they are implemented
         # if self.config.industrial_protocols.opcua and self.config.industrial_protocols.opcua.enabled:
         #     opcua_manager = OPCUADeviceManager(...)
@@ -328,10 +342,12 @@ class SimulationOrchestrator:
         for protocol_name, devices in self.running_devices.items():
             if device_id in devices:
                 device = devices[device_id]
-                
-                # Get actual register data (Modbus specific for now)
+
+                # Get actual register/message data
                 if protocol_name == "modbus_tcp":
                     return device.get_register_data()
+                elif protocol_name == "mqtt":
+                    return device.get_last_message()
         return None
     
     def get_protocol_summary(self) -> Dict[str, Dict]:

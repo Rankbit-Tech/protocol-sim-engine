@@ -131,17 +131,19 @@ async def startup_event():
     """FastAPI startup event handler."""
     setup_logging()
     logger.info("Starting Industrial Facility Simulator API...")
-    
-    # Initialize simulator
-    if await simulator.initialize():
-        # Start simulation automatically when API starts
-        if await simulator.start_simulation():
-            logger.info("Simulator API ready and devices started")
+
+    # Only initialize if not already done (main() may have already initialized)
+    if not simulator.running:
+        if await simulator.initialize():
+            if await simulator.start_simulation():
+                logger.info("Simulator API ready and devices started")
+            else:
+                logger.warning("Simulator API ready but devices failed to start")
         else:
-            logger.warning("Simulator API ready but devices failed to start")
+            logger.error("Failed to initialize simulator")
+            sys.exit(1)
     else:
-        logger.error("Failed to initialize simulator")
-        sys.exit(1)
+        logger.info("Simulator already running, skipping initialization")
 
 
 @app.on_event("shutdown")
@@ -318,13 +320,67 @@ async def export_devices_data(format: str = "json"):
     """Export all device data in specified format (json, csv)."""
     if not simulator.orchestrator:
         return {"error": "Simulator not initialized"}
-    
+
     data = simulator.orchestrator.export_all_device_data(format)
     return {
         "format": format,
         "device_count": data.get("device_count", 0),
         "timestamp": data.get("timestamp"),
         "data": data.get("data", [])
+    }
+
+
+# MQTT-specific endpoints
+
+@app.get("/mqtt/broker")
+async def get_mqtt_broker_status():
+    """Get MQTT broker status."""
+    if not simulator.orchestrator:
+        return {"error": "Simulator not initialized"}
+
+    if "mqtt" not in simulator.orchestrator.device_managers:
+        return {"error": "MQTT not enabled", "status": "disabled"}
+
+    manager = simulator.orchestrator.device_managers["mqtt"]
+    return manager.get_broker_info()
+
+
+@app.get("/mqtt/topics")
+async def get_mqtt_topics():
+    """Get all active MQTT topics."""
+    if not simulator.orchestrator:
+        return {"error": "Simulator not initialized"}
+
+    if "mqtt" not in simulator.orchestrator.device_managers:
+        return {"error": "MQTT not enabled", "topics": []}
+
+    manager = simulator.orchestrator.device_managers["mqtt"]
+    topics = manager.get_all_topics()
+
+    return {
+        "topic_count": len(topics),
+        "devices": topics
+    }
+
+
+@app.get("/mqtt/devices/{device_id}/messages")
+async def get_mqtt_device_messages(device_id: str, limit: int = 10):
+    """Get recent messages from a specific MQTT device."""
+    if not simulator.orchestrator:
+        return {"error": "Simulator not initialized"}
+
+    if "mqtt" not in simulator.orchestrator.running_devices:
+        return {"error": "MQTT not running"}
+
+    devices = simulator.orchestrator.running_devices["mqtt"]
+    if device_id not in devices:
+        return {"error": f"Device {device_id} not found"}
+
+    device = devices[device_id]
+    return {
+        "device_id": device_id,
+        "message_count": len(device.message_history),
+        "messages": device.get_message_history(limit)
     }
 
 

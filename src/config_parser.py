@@ -39,9 +39,33 @@ class ModbusConfig(BaseModel):
     enabled: bool = True
     devices: Dict[str, ModbusDeviceConfig] = Field(default_factory=dict)
 
+
+class MQTTDeviceConfig(BaseModel):
+    """Configuration for MQTT devices."""
+    count: int = Field(gt=0, le=1000)
+    device_template: str
+    base_topic: Optional[str] = None  # Auto-generated if not provided
+    publish_interval: float = Field(gt=0, default=5.0)  # Seconds
+    qos: int = Field(ge=0, le=2, default=0)
+    retain: bool = False
+    locations: Optional[List[str]] = None
+    data_config: Optional[Dict[str, Any]] = None
+
+
+class MQTTConfig(BaseModel):
+    """MQTT protocol configuration."""
+    enabled: bool = True
+    use_embedded_broker: bool = True  # Use embedded or connect to external
+    broker_host: str = "localhost"
+    broker_port: int = Field(ge=1024, le=65535, default=1883)
+    client_id_prefix: str = "sim_"
+    devices: Dict[str, MQTTDeviceConfig] = Field(default_factory=dict)
+
+
 class IndustrialProtocolsConfig(BaseModel):
     """Industrial protocols configuration."""
     modbus_tcp: Optional[ModbusConfig] = None
+    mqtt: Optional[MQTTConfig] = None
 
 class SimulationConfig(BaseModel):
     """Global simulation settings."""
@@ -129,11 +153,13 @@ class ConfigParser:
     def _get_enabled_protocols(self) -> List[str]:
         """Get list of enabled protocols."""
         enabled_protocols = []
-        
+
         if self.config and self.config.industrial_protocols:
             if self.config.industrial_protocols.modbus_tcp and self.config.industrial_protocols.modbus_tcp.enabled:
                 enabled_protocols.append("modbus_tcp")
-                
+            if self.config.industrial_protocols.mqtt and self.config.industrial_protocols.mqtt.enabled:
+                enabled_protocols.append("mqtt")
+
         return enabled_protocols
     
     async def _create_default_config(self, config_file: Path) -> None:
@@ -210,11 +236,20 @@ class ConfigParser:
     
     def get_modbus_devices(self) -> Dict[str, ModbusDeviceConfig]:
         """Get Modbus device configurations."""
-        if (self.config and 
-            self.config.industrial_protocols and 
+        if (self.config and
+            self.config.industrial_protocols and
             self.config.industrial_protocols.modbus_tcp and
             self.config.industrial_protocols.modbus_tcp.enabled):
             return self.config.industrial_protocols.modbus_tcp.devices
+        return {}
+
+    def get_mqtt_devices(self) -> Dict[str, "MQTTDeviceConfig"]:
+        """Get MQTT device configurations."""
+        if (self.config and
+            self.config.industrial_protocols and
+            self.config.industrial_protocols.mqtt and
+            self.config.industrial_protocols.mqtt.enabled):
+            return self.config.industrial_protocols.mqtt.devices
         return {}
     
     def get_network_config(self) -> NetworkConfig:
@@ -229,11 +264,15 @@ class ConfigParser:
         """Check if a specific protocol is enabled."""
         if not self.config or not self.config.industrial_protocols:
             return False
-            
+
         if protocol == "modbus_tcp":
             modbus_config = self.config.industrial_protocols.modbus_tcp
             return modbus_config is not None and modbus_config.enabled
-            
+
+        if protocol == "mqtt":
+            mqtt_config = self.config.industrial_protocols.mqtt
+            return mqtt_config is not None and mqtt_config.enabled
+
         return False
     
     def validate_port_ranges(self) -> bool:
