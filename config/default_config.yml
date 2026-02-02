@@ -62,7 +62,7 @@ industrial_protocols:
   # MQTT Protocol Configuration
   mqtt:
     enabled: true
-    use_embedded_broker: false  # Set to true if you have amqtt installed
+    use_embedded_broker: true  # Set to false to use external broker (e.g., Mosquitto)
     broker_host: "localhost"
     broker_port: 1883
     client_id_prefix: "sim_"

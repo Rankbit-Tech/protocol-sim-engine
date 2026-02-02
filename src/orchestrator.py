@@ -14,6 +14,7 @@ from .config_parser import IndustrialFacilityConfig
 from .port_manager import IntelligentPortManager
 from .protocols.industrial.modbus.modbus_simulator import ModbusDeviceManager
 from .protocols.industrial.mqtt.mqtt_simulator import MQTTDeviceManager
+from .protocols.industrial.mqtt.mqtt_broker import EmbeddedMQTTBroker
 
 logger = structlog.get_logger(__name__)
 
@@ -41,6 +42,7 @@ class SimulationOrchestrator:
         self.running_devices: Dict[str, any] = {}
         self.active_protocols: Set[str] = set()
         self.health_status = {"status": "stopped", "devices": {}}
+        self.embedded_mqtt_broker: Optional[EmbeddedMQTTBroker] = None
         
     async def initialize(self) -> bool:
         """
@@ -93,9 +95,31 @@ class SimulationOrchestrator:
 
         # Initialize MQTT manager if enabled
         if self.config.industrial_protocols.mqtt and self.config.industrial_protocols.mqtt.enabled:
+            mqtt_config = self.config.industrial_protocols.mqtt
+
+            # Start embedded MQTT broker if configured
+            if mqtt_config.use_embedded_broker:
+                logger.info("Starting embedded MQTT broker...")
+                self.embedded_mqtt_broker = EmbeddedMQTTBroker(
+                    host="0.0.0.0",
+                    port=mqtt_config.broker_port
+                )
+                if await self.embedded_mqtt_broker.start():
+                    # Wait for broker to be fully ready
+                    await asyncio.sleep(0.5)
+                    logger.info(
+                        "Embedded MQTT broker started",
+                        port=mqtt_config.broker_port
+                    )
+                else:
+                    logger.warning(
+                        "Failed to start embedded MQTT broker - "
+                        "falling back to external broker mode"
+                    )
+
             logger.info("Initializing MQTT protocol manager...")
             mqtt_manager = MQTTDeviceManager(
-                self.config.industrial_protocols.mqtt,
+                mqtt_config,
                 self.port_manager
             )
             if await mqtt_manager.initialize():
@@ -175,21 +199,27 @@ class SimulationOrchestrator:
         """Stop all running devices and cleanup resources."""
         try:
             logger.info("Stopping all simulation devices...")
-            
+
             # Stop devices for each protocol
             for protocol_name, manager in self.device_managers.items():
                 logger.info(f"Stopping {protocol_name} devices...")
                 await manager.stop_all_devices()
-                
+
+            # Stop embedded MQTT broker if running
+            if self.embedded_mqtt_broker:
+                logger.info("Stopping embedded MQTT broker...")
+                await self.embedded_mqtt_broker.stop()
+                self.embedded_mqtt_broker = None
+
             # Clear running devices
             self.running_devices.clear()
             self.active_protocols.clear()
-            
+
             # Update health status
             self.health_status = {"status": "stopped", "devices": {}}
-            
+
             logger.info("All simulation devices stopped successfully")
-            
+
         except Exception as e:
             logger.error("Error stopping devices", error=str(e))
     

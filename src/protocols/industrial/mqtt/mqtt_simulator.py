@@ -321,7 +321,13 @@ class MQTTDeviceManager:
             self.client.loop_start()
 
             logger.info("Waiting for connection confirmation...")
-            if not self._connect_event.wait(timeout=10):
+            # Use async-friendly wait to avoid blocking the event loop
+            # (important when using embedded amqtt broker in same process)
+            for _ in range(100):  # 10 seconds total (100 * 0.1s)
+                if self._connect_event.is_set():
+                    break
+                await asyncio.sleep(0.1)
+            else:
                 logger.error("MQTT gateway connection timeout")
                 self.client.loop_stop()
                 return None
