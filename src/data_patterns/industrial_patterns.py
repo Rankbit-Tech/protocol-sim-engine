@@ -409,5 +409,181 @@ class IndustrialDataGenerator:
                 "power": self.generate_power_consumption(motor_config),
                 "fault_code": self.generate_fault_code(motor_config)
             })
-            
+
+        elif device_type == "environmental_sensor":
+            # IoT environmental sensor with temperature, humidity, and air quality
+            temp_config = self.pattern_config.get("temperature", {})
+            humidity_config = self.pattern_config.get("humidity", {})
+            air_quality_config = self.pattern_config.get("air_quality", {})
+
+            data.update({
+                "temperature": self.generate_temperature(temp_config),
+                "humidity": self.generate_humidity(humidity_config),
+                **self.generate_air_quality(air_quality_config)
+            })
+
+        elif device_type == "energy_meter":
+            # Smart energy meter
+            energy_config = self.pattern_config.get("energy", {})
+            data.update(self.generate_energy_meter_data(energy_config))
+
+        elif device_type == "asset_tracker":
+            # Asset tracker / BLE beacon
+            tracker_config = self.pattern_config.get("tracker", {})
+            data.update(self.generate_asset_tracker_data(tracker_config))
+
+        elif device_type == "generic_sensor":
+            # Generic IoT sensor - just temperature and humidity
+            temp_config = self.pattern_config.get("temperature", {})
+            humidity_config = self.pattern_config.get("humidity", {})
+
+            data.update({
+                "temperature": self.generate_temperature(temp_config),
+                "humidity": self.generate_humidity(humidity_config)
+            })
+
         return data
+
+    def generate_air_quality(self, config: Dict[str, Any]) -> Dict[str, float]:
+        """
+        Generate air quality metrics for IoT sensors.
+
+        Args:
+            config: Air quality configuration parameters
+
+        Returns:
+            Dictionary with air quality metrics
+        """
+        base_aqi = config.get("base_aqi", 50)
+
+        # Simulate daily patterns (worse during work hours)
+        current_hour = time.localtime().tm_hour
+        if 9 <= current_hour <= 17:
+            work_factor = 1.3
+        else:
+            work_factor = 0.8
+
+        aqi = base_aqi * work_factor + self.random_state.normal(0, 10)
+        aqi = max(0, min(500, aqi))  # AQI bounds
+
+        co2 = 400 + (aqi * 5) + self.random_state.normal(0, 50)
+        tvoc = 50 + (aqi * 2) + self.random_state.normal(0, 20)
+
+        # Atmospheric pressure with small variations
+        base_pressure = config.get("base_pressure", 1013.25)
+        pressure = base_pressure + self.random_state.normal(0, 5)
+
+        return {
+            "air_quality_index": round(aqi, 0),
+            "co2_ppm": round(max(350, co2), 0),
+            "tvoc_ppb": round(max(0, tvoc), 0),
+            "pressure_hpa": round(pressure, 2)
+        }
+
+    def generate_energy_meter_data(self, config: Dict[str, Any]) -> Dict[str, float]:
+        """
+        Generate smart meter readings.
+
+        Args:
+            config: Energy meter configuration parameters
+
+        Returns:
+            Dictionary with energy meter readings
+        """
+        base_voltage = config.get("base_voltage", 230.0)
+        voltage_range = config.get("voltage_range", [220, 240])
+        base_current = config.get("base_current", 20.0)
+        current_range = config.get("current_range", [0, 100])
+
+        # Voltage with small variation
+        voltage = base_voltage + self.random_state.normal(0, 2)
+        voltage = max(voltage_range[0], min(voltage_range[1], voltage))
+
+        # Current based on load (higher during work hours)
+        current_hour = time.localtime().tm_hour
+        if 8 <= current_hour <= 18:
+            load_factor = 1.5
+        else:
+            load_factor = 0.5
+
+        current = base_current * load_factor + self.random_state.normal(0, 5)
+        current = max(current_range[0], min(current_range[1], current))
+
+        power_factor_range = config.get("power_factor_range", [0.85, 0.99])
+        power_factor = self.random_state.uniform(power_factor_range[0], power_factor_range[1])
+
+        power = (voltage * current * power_factor) / 1000  # kW
+
+        # Cumulative energy (simulated)
+        if "energy_kwh" not in self.last_values:
+            self.last_values["energy_kwh"] = config.get("initial_energy", 10000.0)
+
+        # Add energy based on power and time since last update
+        time_hours = 1.0 / 3600.0  # Assume 1 second update interval
+        self.last_values["energy_kwh"] += power * time_hours
+
+        # Frequency with small deviation
+        frequency = 50 + self.random_state.normal(0, 0.05)
+
+        return {
+            "voltage_v": round(voltage, 1),
+            "current_a": round(current, 1),
+            "power_kw": round(power, 2),
+            "power_factor": round(power_factor, 2),
+            "frequency_hz": round(frequency, 2),
+            "energy_kwh": round(self.last_values["energy_kwh"], 1),
+            "phase": config.get("phase", "L1")
+        }
+
+    def generate_asset_tracker_data(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate asset tracker location data.
+
+        Args:
+            config: Asset tracker configuration parameters
+
+        Returns:
+            Dictionary with asset tracker data
+        """
+        zones = config.get("zone_ids", ["zone_a", "zone_b", "zone_c", "warehouse"])
+
+        # Occasionally change zones (simulate asset movement)
+        if "current_zone" not in self.last_values or self.random_state.random() < 0.1:
+            self.last_values["current_zone"] = self.random_state.choice(zones)
+
+        # Battery drain simulation
+        if "battery" not in self.last_values:
+            self.last_values["battery"] = 100.0
+
+        drain_rate = config.get("battery_drain_rate", 0.001)
+        self.last_values["battery"] -= drain_rate
+        self.last_values["battery"] = max(0, self.last_values["battery"])
+
+        # RSSI (signal strength) varies with location
+        base_rssi = config.get("base_rssi", -60)
+        rssi = base_rssi + self.random_state.normal(0, 10)
+        rssi = max(-100, min(-30, rssi))
+
+        # Motion detection (random with higher probability during work hours)
+        current_hour = time.localtime().tm_hour
+        motion_probability = 0.7 if 8 <= current_hour <= 18 else 0.3
+        motion_detected = self.random_state.random() < motion_probability
+
+        # Simulate gateway selection
+        gateways = config.get("gateways", ["gateway_01", "gateway_02", "gateway_03"])
+        last_gateway = self.random_state.choice(gateways)
+
+        # Asset ID (persistent for this device)
+        if "asset_id" not in self.last_values:
+            asset_prefix = config.get("asset_prefix", "ASSET")
+            asset_num = self.random_state.randint(1000, 9999)
+            self.last_values["asset_id"] = f"{asset_prefix}-{asset_num}"
+
+        return {
+            "asset_id": self.last_values["asset_id"],
+            "zone_id": self.last_values["current_zone"],
+            "rssi": round(rssi, 0),
+            "battery_percent": round(self.last_values["battery"], 1),
+            "motion_detected": motion_detected,
+            "last_seen_gateway": last_gateway
+        }

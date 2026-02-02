@@ -43,6 +43,8 @@ RUN mkdir -p /config
 # Expose ports
 # Modbus TCP default range
 EXPOSE 15000-15010
+# MQTT broker port
+EXPOSE 1883
 # HTTP API
 EXPOSE 8080
 

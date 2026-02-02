@@ -257,9 +257,13 @@ class IntelligentPortManager:
             if protocol not in temp_pools:
                 logger.error(f"Unknown protocol in allocation plan: {protocol}")
                 return False
-                
+
+            # Skip validation for devices that don't need ports (e.g., MQTT uses shared broker)
+            if count == 0:
+                continue
+
             allocated = temp_pools[protocol].allocate(count)
-            if not allocated:
+            if allocated is None:
                 logger.error(
                     "Allocation plan validation failed",
                     device_id=device_id,
@@ -267,7 +271,7 @@ class IntelligentPortManager:
                     requested=count
                 )
                 return False
-                
+
         logger.info("Allocation plan validation successful")
         return True
     

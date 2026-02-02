@@ -2,23 +2,24 @@
 
 **Complete overview of what has been built and what's ready to use**
 
-Version: 0.1.0  
-Status: Production Ready (Modbus TCP)  
-Last Updated: January 8, 2026
+Version: 0.2.0
+Status: Production Ready (Modbus TCP + MQTT)
+Last Updated: February 2, 2026
 
 ---
 
 ## 🎯 Executive Summary
 
-The Universal Simulation Engine is a **production-ready industrial protocol simulator** that allows developers to test industrial IoT applications without physical hardware. The Modbus TCP protocol implementation is complete and fully functional with realistic data generation, comprehensive API, and web-based monitoring.
+The Universal Simulation Engine is a **production-ready industrial protocol simulator** that allows developers to test industrial IoT applications without physical hardware. Both Modbus TCP and MQTT protocols are complete and fully functional with realistic data generation, comprehensive API, and web-based monitoring.
 
 ### What You Can Do Right Now
 
-✅ Simulate 1-1000+ Modbus TCP devices  
-✅ Generate realistic industrial data patterns  
-✅ Monitor devices via REST API  
-✅ View live data in web dashboard  
-✅ Deploy with single Docker command  
+✅ Simulate 1-1000+ Modbus TCP devices
+✅ Simulate MQTT IoT sensors with **built-in broker**
+✅ Generate realistic industrial data patterns
+✅ Monitor devices via REST API
+✅ View live data in web dashboard
+✅ Deploy with single Docker command
 ✅ Test industrial applications without hardware
 
 ---
@@ -145,7 +146,115 @@ HR[40004] = Fault Code (0=No Fault, 1-10=Various faults)
 
 ---
 
-### 3. **Realistic Data Generation** ✅ Complete
+### 3. **MQTT Protocol** ✅ Production Ready
+
+#### Full Protocol Implementation (`src/protocols/industrial/mqtt/`)
+
+**Key Features:**
+
+- **Embedded MQTT Broker** (amqtt) - No external broker required!
+- Gateway pattern - Single client for all devices (reliable)
+- Configurable QoS levels (0, 1, 2)
+- Custom topic hierarchies
+- Retained messages for device status
+- Async-friendly implementation
+
+**Supported Device Types:**
+
+1. **Environmental Sensors** - Temperature, humidity, air quality, CO2, pressure
+2. **Smart Energy Meters** - Voltage, current, power, energy consumption
+3. **Asset Trackers** - Zone tracking, battery level, location updates
+
+#### Device Simulator (`mqtt_simulator.py`)
+
+**MQTTDevice Class:**
+
+- Generates realistic IoT sensor data
+- Configurable publish intervals
+- Message history tracking
+- Health monitoring and error tracking
+
+**MQTTDeviceManager Class:**
+
+- Gateway pattern with single shared MQTT client
+- Manages multiple devices efficiently
+- Handles broker connection/reconnection
+- Publishes status messages (online/offline)
+
+#### Embedded MQTT Broker (`mqtt_broker.py`)
+
+**EmbeddedMQTTBroker Class:**
+
+- Uses `amqtt` library for embedded broker
+- Starts automatically when `use_embedded_broker: true`
+- Binds to 0.0.0.0:1883 by default
+- Anonymous authentication enabled
+- Graceful shutdown support
+
+#### Topic Structure
+
+```
+{base_topic}/{device_id}/status  - Device online/offline (retained)
+{base_topic}/{device_id}/data    - Telemetry data
+{base_topic}/{device_id}/alerts  - Alert messages
+```
+
+#### Message Format (JSON)
+
+**Environmental Sensor:**
+
+```json
+{
+  "device_id": "mqtt_environmental_sensors_000",
+  "device_type": "environmental_sensor",
+  "timestamp": 1770027936.29,
+  "data": {
+    "temperature": 22.5,
+    "humidity": 45.2,
+    "air_quality_index": 65,
+    "co2_ppm": 710,
+    "pressure_hpa": 1013.25
+  }
+}
+```
+
+**Smart Energy Meter:**
+
+```json
+{
+  "device_id": "mqtt_energy_meters_000",
+  "device_type": "energy_meter",
+  "data": {
+    "voltage_v": 231.4,
+    "current_a": 32.1,
+    "power_kw": 6.52,
+    "power_factor": 0.88,
+    "energy_kwh": 10000.0
+  }
+}
+```
+
+#### Configuration Options
+
+```yaml
+industrial_protocols:
+  mqtt:
+    enabled: true
+    use_embedded_broker: true  # Built-in broker
+    broker_host: "localhost"
+    broker_port: 1883
+    devices:
+      environmental_sensors:
+        count: 5
+        device_template: "iot_environmental_sensor"
+        base_topic: "factory/sensors"
+        publish_interval: 5.0
+        qos: 1
+```
+
+---
+
+### 4. **Realistic Data Generation** ✅ Complete
 
 #### Industrial Data Patterns (`src/data_patterns/industrial_patterns.py`)
 
@@ -185,7 +294,7 @@ HR[40004] = Fault Code (0=No Fault, 1-10=Various faults)
 
 ---
 
-### 4. **REST API** ✅ Complete (10+ Endpoints)
+### 5. **REST API** ✅ Complete (15+ Endpoints)
 
 #### Implemented in `src/main.py`
 
@@ -199,12 +308,18 @@ HR[40004] = Fault Code (0=No Fault, 1-10=Various faults)
 
 - `GET /devices` - List all devices with status
 - `GET /devices/{id}` - Get specific device details
-- `GET /devices/{id}/data` - **Get real-time register data** ⭐
+- `GET /devices/{id}/data` - **Get real-time register/message data** ⭐
 
 **Protocol Management:**
 
 - `GET /protocols` - List active protocols
 - `GET /protocols/{name}/devices` - Devices by protocol
+
+**MQTT-Specific Endpoints:**
+
+- `GET /mqtt/broker` - MQTT broker status (embedded: true/false)
+- `GET /mqtt/topics` - All active MQTT topics
+- `GET /mqtt/devices/{id}/messages` - Recent messages from device
 
 **Data Export:**
 
@@ -532,7 +647,6 @@ curl http://localhost:8080/devices | jq
 
 ### Protocols
 
-- ❌ MQTT (planned)
 - ❌ OPC-UA (planned)
 - ❌ Ethernet/IP (planned)
 - ❌ BLE/Bluetooth (planned)
@@ -563,12 +677,14 @@ curl http://localhost:8080/devices | jq
 ```
 universal-simulation-engine/
 ├── src/                              # ✅ Complete
-│   ├── main.py                      # FastAPI app, 10+ endpoints
+│   ├── main.py                      # FastAPI app, 15+ endpoints
 │   ├── orchestrator.py              # Core coordination engine
 │   ├── port_manager.py              # Automatic port allocation
 │   ├── config_parser.py             # YAML configuration
 │   ├── protocols/
-│   │   └── industrial/modbus/       # Full Modbus implementation
+│   │   └── industrial/
+│   │       ├── modbus/              # Full Modbus implementation
+│   │       └── mqtt/                # Full MQTT + embedded broker
 │   ├── data_patterns/               # Realistic data generation
 │   ├── utils/                       # Logging, helpers
 │   └── web_interface/
@@ -682,17 +798,17 @@ universal-simulation-engine/
 **What's Production Ready:**
 
 - [x] Modbus TCP protocol (temperature, pressure, motor)
+- [x] MQTT protocol with embedded broker (sensors, meters, trackers)
 - [x] Realistic data generation with industrial patterns
-- [x] REST API with 10+ endpoints
+- [x] REST API with 15+ endpoints
 - [x] Real-time data monitor web interface
 - [x] Dashboard for system monitoring
 - [x] Docker deployment (single command)
 - [x] Port management system
 - [x] Configuration system (YAML)
-- [x] Testing framework (25+ tests)
+- [x] Testing framework
 - [x] Complete documentation
 - [x] Example configurations
-- [x] Python client examples
 
 **Ready for:**
 
@@ -702,11 +818,12 @@ universal-simulation-engine/
 - [x] CI/CD integration
 - [x] Docker deployment
 - [x] Multi-device testing (1-100+ devices)
+- [x] Multi-protocol simulation (Modbus + MQTT)
 
 **Not Yet Ready for:**
 
 - [ ] Production data logging
-- [ ] Multi-protocol (MQTT, OPC-UA)
+- [ ] OPC-UA protocol
 - [ ] Cloud integration
 - [ ] Kubernetes orchestration
 - [ ] Advanced fault injection
@@ -738,9 +855,9 @@ universal-simulation-engine/
 
 ---
 
-**Status: Production Ready for Modbus TCP** ✅
+**Status: Production Ready for Modbus TCP + MQTT** ✅
 
-**Version: 0.1.0**
+**Version: 0.2.0**
 
 **Last Updated: January 8, 2026**
 

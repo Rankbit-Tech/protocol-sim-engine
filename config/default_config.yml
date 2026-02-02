@@ -58,3 +58,45 @@ industrial_protocols:
           speed_range: [0, 3600]
           torque_range: [0, 500]
           power_range: [0, 100]
+
+  # MQTT Protocol Configuration
+  mqtt:
+    enabled: true
+    use_embedded_broker: true  # Set to false to use external broker (e.g., Mosquitto)
+    broker_host: "localhost"
+    broker_port: 1883
+    client_id_prefix: "sim_"
+    devices:
+      # IoT Environmental Sensors
+      environmental_sensors:
+        count: 3
+        device_template: "iot_environmental_sensor"
+        base_topic: "factory/floor1/environment"
+        publish_interval: 5.0
+        qos: 1
+        data_config:
+          temperature_range: [18, 35]
+          humidity_range: [30, 80]
+
+      # Smart Energy Meters
+      energy_meters:
+        count: 2
+        device_template: "smart_meter"
+        base_topic: "factory/energy"
+        publish_interval: 10.0
+        qos: 1
+        data_config:
+          voltage_range: [220, 240]
+          current_range: [0, 100]
+          power_factor_range: [0.85, 0.99]
+
+      # Asset Trackers
+      asset_trackers:
+        count: 5
+        device_template: "asset_tracker"
+        base_topic: "factory/assets"
+        publish_interval: 30.0
+        qos: 0
+        data_config:
+          zone_ids: ["zone_a", "zone_b", "zone_c", "warehouse"]
+          battery_drain_rate: 0.001

@@ -20,10 +20,11 @@ The easiest way to get started is using the pre-built Docker image from Docker H
 # Pull the latest image
 docker pull developeryashsolanki/protocol-sim-engine:latest
 
-# Run with default configuration (3 Modbus devices)
+# Run with default configuration (Modbus + MQTT devices)
 docker run -d \
   --name protocol-sim \
   -p 8080:8080 \
+  -p 1883:1883 \
   -p 15000-15002:15000-15002 \
   developeryashsolanki/protocol-sim-engine:latest
 
@@ -40,6 +41,8 @@ open http://localhost:8080/docs
 - ✅ Temperature sensor on port 15000
 - ✅ Pressure transmitter on port 15001
 - ✅ Motor drive (VFD) on port 15002
+- ✅ 10 MQTT IoT devices (sensors, meters, trackers)
+- ✅ **Embedded MQTT broker** (no external broker needed!)
 - ✅ REST API on port 8080
 - ✅ Interactive API docs at `/docs`
 - ✅ Health monitoring at `/health`
@@ -215,6 +218,13 @@ docker run -d \
   - Pressure transmitters (0.01 PSI resolution)
   - Motor drives (VFDs with speed, torque, power)
   - Flow meters, level sensors, valve controllers
+- ✅ **MQTT** - IoT sensor networks with embedded broker
+  - Environmental sensors (temperature, humidity, air quality)
+  - Smart energy meters (voltage, current, power)
+  - Asset trackers (zone tracking, battery level)
+  - **Embedded MQTT broker** - No external broker required!
+  - Configurable QoS levels (0, 1, 2)
+  - Custom topic hierarchies
 - ✅ **Configuration-Driven** - YAML-based device configuration
 - ✅ **REST API** - Full REST API for monitoring and control
 - ✅ **Realistic Data** - Industrial-grade data patterns with noise and correlation
@@ -223,7 +233,6 @@ docker run -d \
 
 ### Coming Soon
 
-- 🔜 MQTT - IoT sensor networks
 - 🔜 OPC-UA - Industrial automation standard
 - 🔜 Ethernet/IP - Allen-Bradley PLCs
 - 🔜 BLE/Bluetooth - Asset tracking and wearables
@@ -293,6 +302,61 @@ docker run -d \
 curl http://localhost:8080/health
 ```
 
+### MQTT IoT Sensors
+
+The simulator includes a **built-in MQTT broker** - no external broker needed!
+
+```yaml
+# Add to your factory.yml
+industrial_protocols:
+  mqtt:
+    enabled: true
+    use_embedded_broker: true  # Built-in broker, no setup needed!
+    broker_port: 1883
+    devices:
+      environmental_sensors:
+        count: 5
+        device_template: "iot_environmental_sensor"
+        base_topic: "factory/sensors"
+        publish_interval: 5.0
+        qos: 1
+        data_config:
+          temperature_range: [18, 35]
+          humidity_range: [30, 80]
+
+      energy_meters:
+        count: 3
+        device_template: "smart_meter"
+        base_topic: "factory/energy"
+        publish_interval: 10.0
+        qos: 1
+```
+
+Run and subscribe to messages:
+
+```bash
+# Run simulator (broker starts automatically)
+docker run -d \
+  --name iot-sim \
+  -p 8080:8080 \
+  -p 1883:1883 \
+  developeryashsolanki/protocol-sim-engine:latest
+
+# Subscribe to all factory messages (using any MQTT client)
+mosquitto_sub -h localhost -t "factory/#" -v
+```
+
+**Using an external broker instead:**
+
+```yaml
+industrial_protocols:
+  mqtt:
+    enabled: true
+    use_embedded_broker: false  # Use your own broker
+    broker_host: "my-broker.example.com"
+    broker_port: 1883
+```
+
 ### Test Modbus Connectivity
 
 ```python
@@ -321,6 +385,12 @@ Once running, access the API at `http://localhost:8080`:
 - **GET /protocols** - List active protocols
 - **GET /health** - Health check
 - **GET /docs** - Interactive API documentation
+
+**MQTT-specific endpoints:**
+
+- **GET /mqtt/broker** - MQTT broker status (embedded: true/false)
+- **GET /mqtt/topics** - All active MQTT topics
+- **GET /mqtt/devices/{id}/messages** - Recent messages from device
 
 Example:
 
@@ -407,6 +477,73 @@ data_config:
 - HR[40003]: Power (scaled × 100)
 - HR[40004]: Fault code
 
+### MQTT Device Templates
+
+#### Environmental Sensor
+
+```yaml
+device_template: "iot_environmental_sensor"
+base_topic: "factory/sensors"
+publish_interval: 5.0  # seconds
+qos: 1
+data_config:
+  temperature_range: [18, 35]
+  humidity_range: [30, 80]
+```
+
+**MQTT Message (JSON):**
+
+```json
+{
+  "device_id": "mqtt_environmental_sensors_000",
+  "device_type": "environmental_sensor",
+  "timestamp": 1770027936.29,
+  "data": {
+    "temperature": 22.5,
+    "humidity": 45.2,
+    "air_quality_index": 65,
+    "co2_ppm": 710,
+    "pressure_hpa": 1013.25
+  }
+}
+```
+
+#### Smart Energy Meter
+
+```yaml
+device_template: "smart_meter"
+base_topic: "factory/energy"
+publish_interval: 10.0
+qos: 1
+```
+
+**MQTT Message (JSON):**
+
+```json
+{
+  "device_id": "mqtt_energy_meters_000",
+  "device_type": "energy_meter",
+  "data": {
+    "voltage_v": 231.4,
+    "current_a": 32.1,
+    "power_kw": 6.52,
+    "power_factor": 0.88,
+    "energy_kwh": 10000.0
+  }
+}
+```
+
+#### Asset Tracker
+
+```yaml
+device_template: "asset_tracker"
+base_topic: "factory/assets"
+publish_interval: 30.0
+qos: 0
+data_config:
+  zone_ids: ["zone_a", "zone_b", "warehouse"]
+```
+
 ## 📁 Project Structure
 
 ```
@@ -414,7 +551,8 @@ universal-simulation-engine/
 ├── src/                          # Source code
 │   ├── protocols/               # Protocol implementations
 │   │   └── industrial/
-│   │       └── modbus/         # Modbus TCP simulator
+│   │       ├── modbus/         # Modbus TCP simulator
+│   │       └── mqtt/           # MQTT simulator + embedded broker
 │   ├── config_parser.py        # Configuration management
 │   ├── orchestrator.py         # Main orchestrator
 │   ├── port_manager.py         # Port allocation
@@ -422,7 +560,7 @@ universal-simulation-engine/
 ├── examples/                    # Example configurations
 │   └── configs/                # Ready-to-use configs
 ├── tests/                       # Test suite
-│   ├── unit/                   # Unit tests (25 tests)
+│   ├── unit/                   # Unit tests
 │   ├── integration/            # Integration tests
 │   └── smoke/                  # Docker deployment tests
 ├── config/                      # Default configuration
@@ -434,7 +572,8 @@ universal-simulation-engine/
 
 - [📖 Documentation Index](docs/INDEX.md) - Complete navigation guide
 - [📝 Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - What's been built
-- [🔧 Modbus Protocol Guide](docs/protocols/modbus/README.md) - Detailed protocol docs
+- [🔧 Modbus Protocol Guide](docs/protocols/modbus/README.md) - Detailed Modbus docs
+- [📡 MQTT Protocol Guide](docs/protocols/mqtt/README.md) - MQTT & IoT device docs
 - [⚙️ Configuration Examples](examples/configs/README.md) - Ready-to-use configs
 - [🛠️ Tools Guide](tools/README.md) - Utility tools
 
@@ -479,8 +618,8 @@ Built for the industrial IoT community to accelerate development and testing.
 
 ---
 
-**Status**: Production Ready - Modbus TCP Protocol ✅
+**Status**: Production Ready - Modbus TCP ✅ | MQTT ✅
 
-**Version**: 0.1.0
+**Version**: 0.2.0
 
-**Last Updated**: January 2026
+**Last Updated**: February 2026
