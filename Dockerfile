@@ -1,6 +1,24 @@
 # Universal Simulation Engine - Industrial Protocol Simulation Platform
 # Production-ready Docker image for multi-protocol industrial simulation
 
+# Stage 1: Build React frontend
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Copy package files
+COPY frontend/package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy frontend source
+COPY frontend/ ./
+
+# Build for production
+RUN npm run build
+
+# Stage 2: Python application
 FROM python:3.12-slim
 
 # Set working directory
@@ -23,6 +41,9 @@ RUN poetry config virtualenvs.create false
 # Copy source code
 COPY src/ ./src/
 COPY README.md ./
+
+# Copy built frontend from builder stage
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Install dependencies
 RUN poetry install --only=main --no-root
