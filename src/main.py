@@ -13,12 +13,15 @@ from typing import Optional
 import structlog
 import uvicorn
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config_parser import ConfigParser
 from .orchestrator import SimulationOrchestrator
 from .utils.logging_config import setup_logging
+
+# Path to React build directory
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend" / "dist"
 
 # Configure structured logging
 logger = structlog.get_logger(__name__)
@@ -31,6 +34,10 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# Mount React static assets if build exists
+if (FRONTEND_DIR / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="assets")
 
 
 class IndustrialFacilitySimulator:
@@ -153,9 +160,22 @@ async def shutdown_event():
     await simulator.stop_simulation()
 
 
+def serve_react_app():
+    """Serve the React app's index.html."""
+    index_path = FRONTEND_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path, media_type="text/html")
+    # Fallback to legacy HTML templates if React build doesn't exist
+    return None
+
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    """Redirect to dashboard."""
+    """Serve React app or redirect to dashboard."""
+    response = serve_react_app()
+    if response:
+        return response
+    # Fallback redirect
     return """
     <!DOCTYPE html>
     <html>
@@ -172,6 +192,11 @@ async def root():
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard():
     """Serve the monitoring dashboard."""
+    # Try React app first
+    response = serve_react_app()
+    if response:
+        return response
+    # Fallback to legacy HTML
     dashboard_path = Path(__file__).parent / "web_interface" / "templates" / "dashboard.html"
     try:
         with open(dashboard_path, 'r') as f:
@@ -182,6 +207,11 @@ async def dashboard():
 @app.get("/data-monitor", response_class=HTMLResponse)
 async def data_monitor():
     """Serve the real-time data monitoring page."""
+    # Try React app first
+    response = serve_react_app()
+    if response:
+        return response
+    # Fallback to legacy HTML
     monitor_path = Path(__file__).parent / "web_interface" / "templates" / "data_monitor.html"
     try:
         with open(monitor_path, 'r') as f:
