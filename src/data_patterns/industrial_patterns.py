@@ -442,6 +442,18 @@ class IndustrialDataGenerator:
                 "humidity": self.generate_humidity(humidity_config)
             })
 
+        elif device_type == "cnc_machine":
+            cnc_config = self.pattern_config.get("cnc", {})
+            data.update(self.generate_cnc_machine_data(cnc_config))
+
+        elif device_type == "plc_controller":
+            plc_config = self.pattern_config.get("plc", {})
+            data.update(self.generate_plc_controller_data(plc_config))
+
+        elif device_type == "industrial_robot":
+            robot_config = self.pattern_config.get("robot", {})
+            data.update(self.generate_robot_data(robot_config))
+
         return data
 
     def generate_air_quality(self, config: Dict[str, Any]) -> Dict[str, float]:
@@ -586,4 +598,259 @@ class IndustrialDataGenerator:
             "battery_percent": round(self.last_values["battery"], 1),
             "motion_detected": motion_detected,
             "last_seen_gateway": last_gateway
+        }
+
+    def generate_cnc_machine_data(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate CNC machine monitoring data.
+
+        Args:
+            config: CNC machine configuration parameters
+
+        Returns:
+            Dictionary with CNC machine data
+        """
+        speed_range = config.get("spindle_speed_range", [0, 24000])
+        feed_range = config.get("feed_rate_range", [0, 15000])
+
+        # Machine state transitions
+        states = ["IDLE", "RUNNING", "RUNNING", "RUNNING", "SETUP", "ERROR"]
+        if "machine_state" not in self.last_values:
+            self.last_values["machine_state"] = "RUNNING"
+
+        # Occasional state change
+        if self.random_state.random() < 0.02:
+            self.last_values["machine_state"] = self.random_state.choice(states)
+
+        state = self.last_values["machine_state"]
+
+        # Spindle speed depends on state
+        if state == "RUNNING":
+            base_speed = config.get("base_spindle_speed", 12000.0)
+            spindle_speed = base_speed + self.random_state.normal(0, base_speed * 0.02)
+            spindle_speed = max(speed_range[0], min(speed_range[1], spindle_speed))
+        elif state == "SETUP":
+            spindle_speed = self.random_state.uniform(500, 2000)
+        else:
+            spindle_speed = 0.0
+
+        # Feed rate
+        if state == "RUNNING":
+            base_feed = config.get("base_feed_rate", 5000.0)
+            feed_rate = base_feed + self.random_state.normal(0, base_feed * 0.05)
+            feed_rate = max(feed_range[0], min(feed_range[1], feed_rate))
+        else:
+            feed_rate = 0.0
+
+        # Tool wear increases over time, resets on tool change
+        if "tool_wear" not in self.last_values:
+            self.last_values["tool_wear"] = 0.0
+
+        if state == "RUNNING":
+            wear_rate = config.get("tool_wear_rate", 0.01)
+            self.last_values["tool_wear"] += wear_rate + self.random_state.normal(0, 0.002)
+
+        # Tool change at ~90% wear
+        if self.last_values["tool_wear"] > 90:
+            self.last_values["tool_wear"] = 0.0
+            self.last_values["machine_state"] = "SETUP"
+
+        tool_wear = max(0, min(100, self.last_values["tool_wear"]))
+
+        # Part count increments periodically during RUNNING
+        if "part_count" not in self.last_values:
+            self.last_values["part_count"] = 0
+
+        if state == "RUNNING" and self.random_state.random() < 0.05:
+            self.last_values["part_count"] += 1
+
+        # Axis positions trace a path
+        current_time = time.time()
+        workspace = config.get("workspace_mm", [500, 400, 300])
+        axis_x = workspace[0] / 2 + (workspace[0] / 3) * math.sin(current_time * 0.3)
+        axis_y = workspace[1] / 2 + (workspace[1] / 3) * math.cos(current_time * 0.2)
+        axis_z = workspace[2] / 2 + (workspace[2] / 4) * math.sin(current_time * 0.5)
+
+        programs = config.get("programs", ["G-Code_001", "G-Code_002", "G-Code_003"])
+        if "program_name" not in self.last_values:
+            self.last_values["program_name"] = self.random_state.choice(programs)
+
+        return {
+            "spindle_speed_rpm": round(spindle_speed, 1),
+            "feed_rate_mm_min": round(feed_rate, 1),
+            "tool_wear_percent": round(tool_wear, 1),
+            "part_count": int(self.last_values["part_count"]),
+            "axis_position_x": round(axis_x, 2),
+            "axis_position_y": round(axis_y, 2),
+            "axis_position_z": round(axis_z, 2),
+            "program_name": self.last_values["program_name"],
+            "machine_state": state
+        }
+
+    def generate_plc_controller_data(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate PLC process controller data with PID simulation.
+
+        Args:
+            config: PLC controller configuration parameters
+
+        Returns:
+            Dictionary with PLC controller data
+        """
+        pv_range = config.get("process_value_range", [0, 100])
+        setpoint = config.get("setpoint", 50.0)
+
+        # PID simulation
+        kp = config.get("kp", 1.0)
+        ki = config.get("ki", 0.1)
+        kd = config.get("kd", 0.05)
+
+        # Mode transitions
+        modes = ["AUTO", "AUTO", "AUTO", "MANUAL", "CASCADE"]
+        if "plc_mode" not in self.last_values:
+            self.last_values["plc_mode"] = "AUTO"
+            self.last_values["integral_term"] = 0.0
+            self.last_values["last_error"] = 0.0
+            self.last_values["process_value"] = setpoint + self.random_state.normal(0, 5)
+
+        if self.random_state.random() < 0.01:
+            self.last_values["plc_mode"] = self.random_state.choice(modes)
+
+        mode = self.last_values["plc_mode"]
+
+        # Process value drifts naturally with disturbances
+        disturbance = self.random_state.normal(0, 1.5)
+        pv = self.last_values["process_value"] + disturbance
+
+        if mode == "AUTO" or mode == "CASCADE":
+            # PID control drives process value toward setpoint
+            error = setpoint - pv
+            self.last_values["integral_term"] += error * ki
+            # Integral windup protection
+            self.last_values["integral_term"] = max(-50, min(50, self.last_values["integral_term"]))
+            derivative = error - self.last_values["last_error"]
+            control_output = kp * error + self.last_values["integral_term"] + kd * derivative
+            control_output = max(0, min(100, control_output))
+
+            # Control output drives process value toward setpoint
+            pv += control_output * 0.1 - 5.0  # Simplified plant model
+            self.last_values["last_error"] = error
+        else:
+            # Manual mode - control output is fixed
+            control_output = config.get("manual_output", 50.0)
+
+        pv = max(pv_range[0], min(pv_range[1], pv))
+        self.last_values["process_value"] = pv
+
+        # Alarm states
+        high_alarm_threshold = config.get("high_alarm", pv_range[1] * 0.9)
+        low_alarm_threshold = config.get("low_alarm", pv_range[0] + pv_range[1] * 0.1)
+
+        return {
+            "process_value": round(pv, 2),
+            "setpoint": round(setpoint, 2),
+            "control_output": round(control_output, 2),
+            "mode": mode,
+            "high_alarm": pv > high_alarm_threshold,
+            "low_alarm": pv < low_alarm_threshold,
+            "integral_term": round(self.last_values["integral_term"], 3),
+            "derivative_term": round(self.last_values.get("last_error", 0) * kd, 3),
+            "error": round(setpoint - pv, 2)
+        }
+
+    def generate_robot_data(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate industrial robot monitoring data.
+
+        Args:
+            config: Robot configuration parameters
+
+        Returns:
+            Dictionary with robot data
+        """
+        joint_count = config.get("joint_count", 6)
+        max_speed = config.get("max_speed_percent", 100)
+
+        # Program state transitions
+        states = ["RUNNING", "RUNNING", "RUNNING", "PAUSED", "STOPPED"]
+        if "robot_state" not in self.last_values:
+            self.last_values["robot_state"] = "RUNNING"
+            self.last_values["cycle_count"] = 0
+            self.last_values["joint_targets"] = [
+                self.random_state.uniform(-180, 180) for _ in range(joint_count)
+            ]
+
+        if self.random_state.random() < 0.02:
+            self.last_values["robot_state"] = self.random_state.choice(states)
+
+        state = self.last_values["robot_state"]
+
+        # Joint angles move toward targets
+        if "joint_angles" not in self.last_values:
+            self.last_values["joint_angles"] = [0.0] * joint_count
+
+        if state == "RUNNING":
+            for i in range(joint_count):
+                target = self.last_values["joint_targets"][i]
+                current = self.last_values["joint_angles"][i]
+                diff = target - current
+                # Move toward target with some speed
+                step = min(abs(diff), 2.0) * (1 if diff > 0 else -1)
+                self.last_values["joint_angles"][i] = current + step + self.random_state.normal(0, 0.1)
+
+            # Check if near target, pick new target
+            at_target = all(
+                abs(self.last_values["joint_angles"][i] - self.last_values["joint_targets"][i]) < 3.0
+                for i in range(joint_count)
+            )
+            if at_target:
+                self.last_values["joint_targets"] = [
+                    self.random_state.uniform(-180, 180) for _ in range(joint_count)
+                ]
+                self.last_values["cycle_count"] += 1
+
+        joint_angles = [round(a, 2) for a in self.last_values["joint_angles"]]
+
+        # TCP (Tool Center Point) position derived from joint angles
+        current_time = time.time()
+        tcp_x = 500 + 300 * math.sin(current_time * 0.4) + self.random_state.normal(0, 1)
+        tcp_y = 200 + 200 * math.cos(current_time * 0.3) + self.random_state.normal(0, 1)
+        tcp_z = 400 + 150 * math.sin(current_time * 0.5) + self.random_state.normal(0, 1)
+
+        # TCP orientation
+        tcp_rx = 180 + 10 * math.sin(current_time * 0.2)
+        tcp_ry = 5 * math.cos(current_time * 0.3)
+        tcp_rz = 90 + 5 * math.sin(current_time * 0.4)
+
+        # Cycle time with variation
+        base_cycle_time = config.get("base_cycle_time", 15.0)
+        cycle_time = base_cycle_time + self.random_state.normal(0, base_cycle_time * 0.05)
+        cycle_time = max(5.0, cycle_time)
+
+        # Payload
+        payload_range = config.get("payload_range", [0, 20])
+        if "payload" not in self.last_values:
+            self.last_values["payload"] = self.random_state.uniform(payload_range[0], payload_range[1])
+        if self.random_state.random() < 0.03:
+            self.last_values["payload"] = self.random_state.uniform(payload_range[0], payload_range[1])
+
+        # Speed percent
+        if state == "RUNNING":
+            speed = max_speed * (0.8 + self.random_state.uniform(0, 0.2))
+        else:
+            speed = 0.0
+
+        return {
+            "joint_angles": joint_angles,
+            "tcp_position_x": round(tcp_x, 2),
+            "tcp_position_y": round(tcp_y, 2),
+            "tcp_position_z": round(tcp_z, 2),
+            "tcp_orientation_rx": round(tcp_rx, 2),
+            "tcp_orientation_ry": round(tcp_ry, 2),
+            "tcp_orientation_rz": round(tcp_rz, 2),
+            "program_state": state,
+            "cycle_time_s": round(cycle_time, 2),
+            "cycle_count": int(self.last_values["cycle_count"]),
+            "payload_kg": round(self.last_values["payload"], 1),
+            "speed_percent": round(speed, 1)
         }

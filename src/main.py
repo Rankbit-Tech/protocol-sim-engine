@@ -414,6 +414,47 @@ async def get_mqtt_device_messages(device_id: str, limit: int = 10):
     }
 
 
+# OPC-UA specific endpoints
+
+@app.get("/opcua/servers")
+async def get_opcua_servers():
+    """Get all OPC-UA server endpoints."""
+    if not simulator.orchestrator:
+        return {"error": "Simulator not initialized"}
+
+    if "opcua" not in simulator.orchestrator.device_managers:
+        return {"error": "OPC-UA not enabled", "servers": []}
+
+    manager = simulator.orchestrator.device_managers["opcua"]
+    endpoints = manager.get_all_server_endpoints()
+
+    return {
+        "server_count": len(endpoints),
+        "servers": endpoints
+    }
+
+
+@app.get("/opcua/devices/{device_id}/nodes")
+async def get_opcua_device_nodes(device_id: str):
+    """Get current node values for a specific OPC-UA device."""
+    if not simulator.orchestrator:
+        return {"error": "Simulator not initialized"}
+
+    if "opcua" not in simulator.orchestrator.running_devices:
+        return {"error": "OPC-UA not running"}
+
+    devices = simulator.orchestrator.running_devices["opcua"]
+    if device_id not in devices:
+        return {"error": f"Device {device_id} not found"}
+
+    device = devices[device_id]
+    node_data = device.get_node_data()
+    if node_data is None:
+        return {"error": f"No data available yet for {device_id}"}
+
+    return node_data
+
+
 async def main():
     """Main async function for running the simulator."""
     import argparse

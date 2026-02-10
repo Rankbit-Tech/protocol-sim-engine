@@ -66,6 +66,8 @@ RUN mkdir -p /config
 EXPOSE 15000-15010
 # MQTT broker port
 EXPOSE 1883
+# OPC-UA default range
+EXPOSE 4840-4850
 # HTTP API
 EXPOSE 8080
 
