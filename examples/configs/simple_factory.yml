@@ -17,6 +17,7 @@ network:
   port_ranges:
     modbus: [15000, 15100]
     mqtt: [1883, 1883]
+    opcua: [4840, 4850]
     http: [8080, 8099]
 
 industrial_protocols:

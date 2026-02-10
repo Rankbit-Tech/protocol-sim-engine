@@ -8,6 +8,6 @@ This package provides comprehensive simulation of industrial facilities includin
 - IoT/Wireless protocols (MQTT, Bluetooth, WiFi)
 """
 
-__version__ = "0.1.0"
+__version__ = "0.4.0"
 __author__ = "Rankbit"
 __description__ = "Open Source Industrial Protocol & Device Simulation Platform"

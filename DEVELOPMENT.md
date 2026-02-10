@@ -92,11 +92,11 @@ git push origin feature/mqtt-support
 
 # 2. Prepare Release
 git checkout develop
-git checkout -b release/0.2.0
+git checkout -b release/0.4.0
 # Update version, changelog, docs
-git push origin release/0.2.0
-# Open PR: release/0.2.0 → main
-# Open PR: release/0.2.0 → develop
+git push origin release/0.4.0
+# Open PR: release/0.4.0 → main
+# Open PR: release/0.4.0 → develop
 
 # 3. Hotfix
 git checkout main
@@ -114,11 +114,13 @@ git push origin hotfix/security-patch
 We follow [SemVer](https://semver.org/): `MAJOR.MINOR.PATCH`
 
 ```
-0.1.0 → Initial release
+0.1.0 → Initial release (Modbus TCP)
   ↓
-0.1.1 → Bug fix (backward compatible)
+0.2.0 → MQTT protocol + embedded broker
   ↓
-0.2.0 → New feature (backward compatible)
+0.3.0 → React frontend migration
+  ↓
+0.4.0 → OPC-UA protocol support (current)
   ↓
 1.0.0 → First stable release
   ↓
@@ -143,29 +145,29 @@ When bumping version, update:
 ```toml
 [tool.poetry]
 name = "protocol-sim-engine"
-version = "0.2.0"  # ← Update here
+version = "0.4.0"  # ← Update here
 ```
 
 2. **`README.md`**
 
 ```markdown
-**Version**: 0.2.0 # ← Update here
-**Last Updated**: January 2026
+**Version**: 0.4.0 # ← Update here
+**Last Updated**: February 2026
 ```
 
 3. **`CHANGELOG.md`** (create if doesn't exist)
 
 ```markdown
-## [0.2.0] - 2026-01-15
+## [0.4.0] - 2026-02-10
 
 ### Added
 
-- MQTT protocol support
-- Web dashboard UI
+- OPC-UA protocol support (CNC, PLC, Robot)
+- OPC-UA API endpoints
 
 ### Fixed
 
-- Modbus connection leak (#45)
+- Pattern data generation for industrial patterns
 ```
 
 4. **Docker Tags** (handled by release script)
@@ -192,31 +194,31 @@ git checkout develop
 git pull origin develop
 
 # Create release branch
-git checkout -b release/0.2.0
+git checkout -b release/0.4.0
 
 # Version bump
-# Edit: pyproject.toml, README.md, CHANGELOG.md
-sed -i '' 's/version = "0.1.0"/version = "0.2.0"/' pyproject.toml
+# Edit: pyproject.toml, src/__init__.py, src/main.py, README.md, Dockerfile
+sed -i '' 's/version = "0.3.0"/version = "0.4.0"/' pyproject.toml
 
 # Commit version bump
 git add .
-git commit -m "chore: bump version to 0.2.0"
+git commit -m "chore: bump version to 0.4.0"
 
 # Push
-git push origin release/0.2.0
+git push origin release/0.4.0
 ```
 
 ### 3. Final Testing
 
 ```bash
 # Build and test locally
-docker build -t protocol-sim-engine:0.2.0 .
+docker build -t protocol-sim-engine:0.4.0 .
 
 # Run comprehensive tests
 ./run_all_tests.sh
 
 # Manual smoke testing
-docker run -p 8080:8080 -p 15000-15002:15000-15002 protocol-sim-engine:0.2.0
+docker run -p 8080:8080 -p 15000-15002:15000-15002 -p 4840-4850:4840-4850 protocol-sim-engine:0.4.0
 curl http://localhost:8080/health
 
 # Load testing (if applicable)
@@ -225,15 +227,15 @@ curl http://localhost:8080/health
 ### 4. Merge to Main
 
 ```bash
-# Create PR: release/0.2.0 → main
+# Create PR: release/0.4.0 → main
 # Get approvals (minimum 2 reviewers)
 # Merge with "Create a merge commit" (NOT squash)
 
 # After merge, tag the release
 git checkout main
 git pull origin main
-git tag -a v0.2.0 -m "Release version 0.2.0"
-git push origin v0.2.0
+git tag -a v0.4.0 -m "Release version 0.4.0"
+git push origin v0.4.0
 ```
 
 ### 5. Merge Back to Develop
@@ -250,18 +252,18 @@ git push origin develop
 
 ```bash
 # Build production image
-docker build -t developeryashsolanki/protocol-sim-engine:0.2.0 .
+docker build -t developeryashsolanki/protocol-sim-engine:0.4.0 .
 
 # Tag variants
-docker tag developeryashsolanki/protocol-sim-engine:0.2.0 \
-  developeryashsolanki/protocol-sim-engine:0.2
+docker tag developeryashsolanki/protocol-sim-engine:0.4.0 \
+  developeryashsolanki/protocol-sim-engine:0.4
 
-docker tag developeryashsolanki/protocol-sim-engine:0.2.0 \
+docker tag developeryashsolanki/protocol-sim-engine:0.4.0 \
   developeryashsolanki/protocol-sim-engine:latest
 
 # Push all tags
-docker push developeryashsolanki/protocol-sim-engine:0.2.0
-docker push developeryashsolanki/protocol-sim-engine:0.2
+docker push developeryashsolanki/protocol-sim-engine:0.4.0
+docker push developeryashsolanki/protocol-sim-engine:0.4
 docker push developeryashsolanki/protocol-sim-engine:latest
 
 # Verify
@@ -271,37 +273,31 @@ docker pull developeryashsolanki/protocol-sim-engine:latest
 ### 7. GitHub Release
 
 1. Go to: https://github.com/Rankbit-Tech/protocol-sim-engine/releases/new
-2. Tag: `v0.2.0`
-3. Title: `v0.2.0 - MQTT Support & Dashboard`
+2. Tag: `v0.4.0`
+3. Title: `v0.4.0 - OPC UA Industrial Protocol Support`
 4. Description:
 
 ````markdown
-## 🎉 What's New
+## What's New
 
 ### Features
 
-- ✨ Added MQTT protocol support
-- 🎨 New web dashboard UI
-- 🔧 Configurable QoS levels
-
-### Improvements
-
-- ⚡ 30% faster data generation
-- 📝 Improved API documentation
+- Added OPC-UA protocol support (CNC machine, PLC controller, industrial robot)
+- OPC-UA API endpoints (/opcua/servers, /opcua/devices/{id}/nodes)
+- Frontend OPC-UA telemetry formatting in Data Monitor
 
 ### Bug Fixes
 
-- 🐛 Fixed Modbus connection leak (#45)
-- 🔒 Security patch for dependency
+- Fixed pattern data generation for industrial data patterns
 
 ### Docker
 
 ```bash
-docker pull developeryashsolanki/protocol-sim-engine:0.2.0
+docker pull developeryashsolanki/protocol-sim-engine:0.4.0
 ```
 ````
 
-**Full Changelog**: https://github.com/Rankbit-Tech/protocol-sim-engine/compare/v0.1.0...v0.2.0
+**Full Changelog**: https://github.com/Rankbit-Tech/protocol-sim-engine/compare/v0.3.0...v0.4.0
 
 ````
 
@@ -401,7 +397,7 @@ docker tag developeryashsolanki/protocol-sim-engine:latest
 # Build for multiple platforms
 docker buildx create --use
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t developeryashsolanki/protocol-sim-engine:0.2.0 \
+  -t developeryashsolanki/protocol-sim-engine:0.4.0 \
   --push .
 ```
 
@@ -409,30 +405,30 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 
 ```bash
 # After push, verify
-docker pull developeryashsolanki/protocol-sim-engine:0.2.0
-docker run --rm developeryashsolanki/protocol-sim-engine:0.2.0 --version
+docker pull developeryashsolanki/protocol-sim-engine:0.4.0
+docker run --rm developeryashsolanki/protocol-sim-engine:0.4.0 --version
 
 # Check digest
-docker inspect developeryashsolanki/protocol-sim-engine:0.2.0 | \
+docker inspect developeryashsolanki/protocol-sim-engine:0.4.0 | \
   jq '.[0].RepoDigests'
 ```
 
 ## 🔄 Upgrade Procedures
 
-### Minor Version Upgrade (0.1.0 → 0.2.0)
+### Minor Version Upgrade (0.3.0 → 0.4.0)
 
 **Preparation:**
 
 ```bash
 # 1. Review changes
-git log v0.1.0..v0.2.0
+git log v0.3.0..v0.4.0
 
 # 2. Test upgrade path
-docker pull developeryashsolanki/protocol-sim-engine:0.1.0
-docker pull developeryashsolanki/protocol-sim-engine:0.2.0
+docker pull developeryashsolanki/protocol-sim-engine:0.3.0
+docker pull developeryashsolanki/protocol-sim-engine:0.4.0
 
 # 3. Check config compatibility
-diff config/default_config_v0.1.yml config/default_config_v0.2.yml
+diff config/default_config_v0.3.yml config/default_config_v0.4.yml
 ```
 
 **Deployment:**
@@ -447,7 +443,8 @@ docker stop protocol-sim-old
 docker run -d --name protocol-sim-new \
   -v $(pwd)/config.yml:/config/factory.yml \
   -p 8080:8080 \
-  developeryashsolanki/protocol-sim-engine:0.2.0
+  -p 4840-4850:4840-4850 \
+  developeryashsolanki/protocol-sim-engine:0.4.0
 
 # Verify
 curl http://localhost:8080/health

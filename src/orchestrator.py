@@ -15,6 +15,7 @@ from .port_manager import IntelligentPortManager
 from .protocols.industrial.modbus.modbus_simulator import ModbusDeviceManager
 from .protocols.industrial.mqtt.mqtt_simulator import MQTTDeviceManager
 from .protocols.industrial.mqtt.mqtt_broker import EmbeddedMQTTBroker
+from .protocols.industrial.opcua.opcua_simulator import OPCUADeviceManager
 
 logger = structlog.get_logger(__name__)
 
@@ -128,10 +129,18 @@ class SimulationOrchestrator:
             else:
                 logger.warning("MQTT manager initialization failed - MQTT devices will not be available")
 
-        # TODO: Add other protocol managers here as they are implemented
-        # if self.config.industrial_protocols.opcua and self.config.industrial_protocols.opcua.enabled:
-        #     opcua_manager = OPCUADeviceManager(...)
-        #     self.device_managers["opcua"] = opcua_manager
+        # Initialize OPC-UA manager if enabled
+        if self.config.industrial_protocols.opcua and self.config.industrial_protocols.opcua.enabled:
+            logger.info("Initializing OPC-UA protocol manager...")
+            opcua_manager = OPCUADeviceManager(
+                self.config.industrial_protocols.opcua,
+                self.port_manager
+            )
+            if await opcua_manager.initialize():
+                self.device_managers["opcua"] = opcua_manager
+                self.active_protocols.add("opcua")
+            else:
+                logger.warning("OPC-UA manager initialization failed - OPC-UA devices will not be available")
         
     async def _validate_allocation_plan(self) -> bool:
         """Validate that all devices can be allocated without port conflicts."""
@@ -373,11 +382,13 @@ class SimulationOrchestrator:
             if device_id in devices:
                 device = devices[device_id]
 
-                # Get actual register/message data
+                # Get actual register/message/node data
                 if protocol_name == "modbus_tcp":
                     return device.get_register_data()
                 elif protocol_name == "mqtt":
                     return device.get_last_message()
+                elif protocol_name == "opcua":
+                    return device.get_node_data()
         return None
     
     def get_protocol_summary(self) -> Dict[str, Dict]:

@@ -53,7 +53,22 @@ function formatDeviceData(data: DeviceData): string {
       return `Zone: ${d.zone_id} · Battery: ${battery}% · RSSI: ${d.rssi} dBm`;
     }
   }
-  return JSON.stringify(data.data || data.registers || {});
+  if (data.nodes) {
+    const n = data.nodes;
+    if (n.spindle_speed_rpm !== undefined) {
+      return `${n.spindle_speed_rpm} RPM · Feed: ${n.feed_rate_mm_min} mm/min · Tool: ${n.tool_wear_percent}% · Parts: ${n.part_count} · ${n.machine_state}`;
+    }
+    if (n.process_value !== undefined) {
+      const alarms = [];
+      if (n.high_alarm) alarms.push('HIGH');
+      if (n.low_alarm) alarms.push('LOW');
+      return `PV: ${n.process_value} · SP: ${n.setpoint} · Out: ${n.control_output}% · Mode: ${n.mode}${alarms.length ? ` · Alarm: ${alarms.join(', ')}` : ''}`;
+    }
+    if (n.program_state !== undefined) {
+      return `${n.program_state} · Cycle: ${n.cycle_time_s}s · Payload: ${n.payload_kg}kg · Speed: ${n.speed_percent}%`;
+    }
+  }
+  return JSON.stringify(data.nodes || data.data || data.registers || {});
 }
 
 function formatDeviceType(type: string): string {

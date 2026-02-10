@@ -2,7 +2,7 @@
 
 **Complete documentation for the Universal Simulation Engine**
 
-Last Updated: February 2, 2026
+Last Updated: February 10, 2026
 
 ---
 
@@ -26,7 +26,10 @@ Last Updated: February 2, 2026
   - Environmental sensors, energy meters, asset trackers
   - **Built-in MQTT broker** (no external setup needed)
   - Configurable QoS, topics, publish intervals
-- [OPC-UA Protocol](protocols/opcua/README.md) - Coming soon
+- [OPC-UA Protocol](protocols/opcua/README.md) - Industrial automation (CNC, PLC, Robot)
+  - CNC machine monitors, PLC process controllers, industrial robots
+  - Dedicated OPC-UA servers with structured address spaces
+  - Compatible with standard OPC-UA clients
 
 #### Configuration Reference
 
@@ -162,17 +165,21 @@ Last Updated: February 2, 2026
   - **Built-in MQTT broker** (amqtt) - no external setup needed
   - Configurable QoS levels (0, 1, 2), topic hierarchies
   - Gateway pattern for reliable multi-device publishing
+- **OPC-UA Protocol** - Full implementation with dedicated servers
+  - CNC machine monitors, PLC process controllers, industrial robots
+  - Hierarchical address space (DeviceSet/Identification/Parameters/Status)
+  - `asyncua`-based servers, compatible with standard OPC-UA clients
+  - Realistic data patterns (tool wear, PID control, robot cycles)
 - **Configuration System** - YAML-based configuration
 - **REST API** - 15+ endpoints for monitoring/control
-- **Web Dashboard** - Live monitoring interface
-- **Real-Time Data Monitor** - Streaming data viewer
+- **React Frontend** - Modern responsive dashboard (React + TypeScript + shadcn/ui)
+- **Real-Time Data Monitor** - Streaming data viewer with multi-select device filter
 - **Port Management** - Automatic allocation and conflict prevention
 - **Docker Support** - Single-image deployment
 - **Testing Framework** - Unit tests, integration tests
 
 ### 🚧 In Progress
 
-- OPC-UA Protocol implementation
 - Additional device templates
 - Enhanced documentation
 
@@ -228,4 +235,4 @@ Last Updated: February 2, 2026
 
 **Happy Simulating! 🚀**
 
-_This documentation is continuously updated. Last update: February 2, 2026_
+_This documentation is continuously updated. Last update: February 10, 2026_

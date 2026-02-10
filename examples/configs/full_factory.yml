@@ -1,0 +1,166 @@
+# Full Multi-Protocol Factory Configuration
+# Demonstrates all 3 implemented protocols: Modbus TCP, MQTT, and OPC-UA
+# 24 total devices across a realistic automotive assembly plant
+
+facility:
+  name: "Automotive Assembly Plant - Building A"
+  description: "Multi-protocol simulation of an automotive assembly line with CNC machining, robotic welding, environmental monitoring, and process control"
+  location: "Virtual Detroit Plant, Line 3"
+  shift_schedule: "24x7"
+
+simulation:
+  time_acceleration: 1.0
+  data_retention: "48h"
+  fault_injection_rate: 0.01
+
+network:
+  base_ip: "10.0.50.0/24"
+  port_ranges:
+    modbus: [15000, 15100]
+    opcua: [4840, 4900]
+    mqtt: [1883, 1883]
+    http: [8080, 8099]
+
+industrial_protocols:
+
+  # ─── Modbus TCP ───────────────────────────────────────────────
+  # Classic fieldbus devices: sensors and motor drives
+  modbus_tcp:
+    enabled: true
+    devices:
+      # Thermocouple temperature sensors on the paint booth and curing ovens
+      temperature_sensors:
+        count: 3
+        port_start: 15000
+        device_template: "industrial_temperature_sensor"
+        locations: ["paint_booth_1", "curing_oven_a", "curing_oven_b"]
+        update_interval: 2.0
+        data_config:
+          temperature_range: [60, 220]
+          humidity_range: [10, 40]
+          calibration_drift: 0.002
+
+      # Hydraulic press pressure transmitters
+      pressure_transmitters:
+        count: 2
+        port_start: 15003
+        device_template: "hydraulic_pressure_sensor"
+        locations: ["stamping_press_1", "stamping_press_2"]
+        update_interval: 0.5
+        data_config:
+          pressure_range: [0, 500]
+          flow_range: [20, 200]
+          alarm_thresholds:
+            high_pressure: 450
+            low_flow: 30
+
+      # Conveyor and fan VFDs
+      motor_drives:
+        count: 4
+        port_start: 15005
+        device_template: "variable_frequency_drive"
+        locations: ["conveyor_main", "conveyor_paint", "exhaust_fan_1", "exhaust_fan_2"]
+        update_interval: 0.5
+        data_config:
+          speed_range: [0, 1800]
+          torque_range: [0, 250]
+          power_range: [0, 75]
+          fault_codes: [0, 1, 2, 5, 8, 10, 15]
+
+  # ─── MQTT ─────────────────────────────────────────────────────
+  # IoT sensors, energy meters, and asset tracking beacons
+  mqtt:
+    enabled: true
+    use_embedded_broker: true
+    broker_host: "localhost"
+    broker_port: 1883
+    client_id_prefix: "plant_a_"
+    devices:
+      # Wireless environmental sensors throughout the building
+      environmental_sensors:
+        count: 4
+        device_template: "iot_environmental_sensor"
+        base_topic: "plant_a/building/environment"
+        publish_interval: 5.0
+        qos: 1
+        data_config:
+          temperature_range: [18, 35]
+          humidity_range: [25, 70]
+
+      # Smart power meters on each production zone breaker
+      energy_meters:
+        count: 3
+        device_template: "smart_meter"
+        base_topic: "plant_a/energy"
+        publish_interval: 10.0
+        qos: 1
+        data_config:
+          voltage_range: [115, 125]
+          current_range: [0, 200]
+          power_factor_range: [0.88, 0.99]
+          phase: "L1"
+
+      # BLE asset trackers on tool carts and AGVs
+      asset_trackers:
+        count: 5
+        device_template: "asset_tracker"
+        base_topic: "plant_a/assets"
+        publish_interval: 15.0
+        qos: 0
+        data_config:
+          zone_ids: ["machining", "welding", "paint", "assembly", "shipping", "maintenance"]
+          battery_drain_rate: 0.0005
+          gateways: ["gw_north", "gw_south", "gw_east", "gw_west"]
+
+  # ─── OPC-UA ───────────────────────────────────────────────────
+  # CNC machining centers, PLC process controllers, and welding robots
+  opcua:
+    enabled: true
+    security_mode: "None"
+    security_policy: "None"
+    application_uri: "urn:plant-a:opcua:server"
+    devices:
+      # 5-axis CNC machining centers for engine block milling
+      cnc_machines:
+        count: 2
+        port_start: 4840
+        device_template: "opcua_cnc_machine"
+        locations: ["machining_cell_1", "machining_cell_2"]
+        update_interval: 1.0
+        data_config:
+          spindle_speed_range: [0, 18000]
+          feed_rate_range: [0, 12000]
+          base_spindle_speed: 8000
+          base_feed_rate: 4000
+          tool_wear_rate: 0.015
+          workspace_mm: [800, 600, 500]
+          programs: ["EngineBlock_Op10", "EngineBlock_Op20", "HeadGasket_Op10"]
+
+      # PLC controllers for paint booth temperature and curing oven control
+      plc_controllers:
+        count: 2
+        port_start: 4842
+        device_template: "opcua_plc_controller"
+        locations: ["paint_booth_ctrl", "curing_oven_ctrl"]
+        update_interval: 0.5
+        data_config:
+          process_value_range: [60, 220]
+          setpoint: 180.0
+          kp: 2.0
+          ki: 0.3
+          kd: 0.1
+          high_alarm: 210
+          low_alarm: 100
+
+      # 6-axis welding robots on the body-in-white line
+      industrial_robots:
+        count: 2
+        port_start: 4844
+        device_template: "opcua_industrial_robot"
+        locations: ["weld_cell_left", "weld_cell_right"]
+        update_interval: 0.5
+        data_config:
+          joint_count: 6
+          max_speed_percent: 80
+          base_cycle_time: 22.0
+          payload_range: [5, 15]

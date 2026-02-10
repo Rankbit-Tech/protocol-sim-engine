@@ -100,3 +100,55 @@ industrial_protocols:
         data_config:
           zone_ids: ["zone_a", "zone_b", "zone_c", "warehouse"]
           battery_drain_rate: 0.001
+
+  # OPC-UA Protocol Configuration
+  opcua:
+    enabled: true
+    security_mode: "None"
+    security_policy: "None"
+    application_uri: "urn:protocol-sim-engine:opcua:server"
+    devices:
+      # CNC Machine Monitors
+      cnc_machines:
+        count: 1
+        port_start: 4840
+        device_template: "opcua_cnc_machine"
+        locations: ["machining_center_1"]
+        update_interval: 1.0
+        data_config:
+          spindle_speed_range: [0, 24000]
+          feed_rate_range: [0, 15000]
+          base_spindle_speed: 12000
+          base_feed_rate: 5000
+          tool_wear_rate: 0.01
+          workspace_mm: [500, 400, 300]
+          programs: ["G-Code_001", "G-Code_002", "G-Code_003"]
+
+      # PLC Process Controllers
+      plc_controllers:
+        count: 1
+        port_start: 4841
+        device_template: "opcua_plc_controller"
+        locations: ["process_line_1"]
+        update_interval: 0.5
+        data_config:
+          process_value_range: [0, 100]
+          setpoint: 50.0
+          kp: 1.0
+          ki: 0.1
+          kd: 0.05
+          high_alarm: 90
+          low_alarm: 10
+
+      # Industrial Robots
+      industrial_robots:
+        count: 1
+        port_start: 4842
+        device_template: "opcua_industrial_robot"
+        locations: ["assembly_cell_1"]
+        update_interval: 0.5
+        data_config:
+          joint_count: 6
+          max_speed_percent: 100
+          base_cycle_time: 15.0
+          payload_range: [0, 20]

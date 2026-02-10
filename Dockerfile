@@ -66,6 +66,8 @@ RUN mkdir -p /config
 EXPOSE 15000-15010
 # MQTT broker port
 EXPOSE 1883
+# OPC-UA default range
+EXPOSE 4840-4850
 # HTTP API
 EXPOSE 8080
 
@@ -88,7 +90,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 # Labels for documentation
 LABEL org.opencontainers.image.title="Universal Simulation Engine"
 LABEL org.opencontainers.image.description="Multi-protocol industrial facility simulation platform with config-driven device deployment"
-LABEL org.opencontainers.image.version="0.1.0"
+LABEL org.opencontainers.image.version="0.4.0"
 LABEL org.opencontainers.image.authors="Universal Simulation Engine Team"
 LABEL org.opencontainers.image.source="https://github.com/universal-simulation-engine/core"
 LABEL org.opencontainers.image.licenses="MIT"

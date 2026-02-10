@@ -38,6 +38,31 @@ See `examples/monitoring/monitor_devices.py` for real-time monitoring example.
 python examples/monitoring/monitor_devices.py
 ```
 
+### OPC-UA Client Example
+
+Connect to OPC-UA devices and read node values:
+
+```python
+import asyncio
+from asyncua import Client
+
+async def main():
+    # Connect to CNC machine on port 4840
+    client = Client("opc.tcp://localhost:4840/freeopcua/server/")
+    async with client:
+        # Read spindle speed
+        node = client.get_node("ns=2;s=SpindleSpeed")
+        value = await node.read_value()
+        print(f"Spindle Speed: {value} RPM")
+
+        # Read tool wear
+        node = client.get_node("ns=2;s=ToolWearPercent")
+        value = await node.read_value()
+        print(f"Tool Wear: {value}%")
+
+asyncio.run(main())
+```
+
 ## 🧪 Testing Tools
 
 ### Integration Test
@@ -186,6 +211,18 @@ curl http://localhost:8080/devices | jq '.devices[] | .device_id' | while read i
 done
 ```
 
+### List OPC-UA Servers
+
+```bash
+curl http://localhost:8080/opcua/servers | jq
+```
+
+### Get OPC-UA Device Nodes
+
+```bash
+curl http://localhost:8080/opcua/devices/opcua_cnc_machines_000/nodes | jq
+```
+
 ### Monitor Health
 
 ```bash
@@ -202,6 +239,14 @@ Check which Modbus ports are responding:
 ```bash
 for port in {15000..15010}; do
   timeout 1 bash -c "echo > /dev/tcp/localhost/$port" 2>/dev/null && echo "Port $port: OPEN"
+done
+```
+
+Check which OPC-UA ports are responding:
+
+```bash
+for port in {4840..4850}; do
+  timeout 1 bash -c "echo > /dev/tcp/localhost/$port" 2>/dev/null && echo "Port $port: OPEN (OPC-UA)"
 done
 ```
 

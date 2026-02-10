@@ -62,10 +62,30 @@ class MQTTConfig(BaseModel):
     devices: Dict[str, MQTTDeviceConfig] = Field(default_factory=dict)
 
 
+class OPCUADeviceConfig(BaseModel):
+    """Configuration for OPC-UA devices."""
+    count: int = Field(gt=0, le=1000)
+    port_start: int = Field(ge=1024, le=65535)
+    device_template: str
+    locations: Optional[List[str]] = None
+    update_interval: float = Field(gt=0, default=1.0)
+    data_config: Optional[Dict[str, Any]] = None
+
+
+class OPCUAConfig(BaseModel):
+    """OPC-UA protocol configuration."""
+    enabled: bool = True
+    security_mode: str = "None"
+    security_policy: str = "None"
+    application_uri: str = "urn:protocol-sim-engine:opcua:server"
+    devices: Dict[str, OPCUADeviceConfig] = Field(default_factory=dict)
+
+
 class IndustrialProtocolsConfig(BaseModel):
     """Industrial protocols configuration."""
     modbus_tcp: Optional[ModbusConfig] = None
     mqtt: Optional[MQTTConfig] = None
+    opcua: Optional[OPCUAConfig] = None
 
 class SimulationConfig(BaseModel):
     """Global simulation settings."""
@@ -159,6 +179,8 @@ class ConfigParser:
                 enabled_protocols.append("modbus_tcp")
             if self.config.industrial_protocols.mqtt and self.config.industrial_protocols.mqtt.enabled:
                 enabled_protocols.append("mqtt")
+            if self.config.industrial_protocols.opcua and self.config.industrial_protocols.opcua.enabled:
+                enabled_protocols.append("opcua")
 
         return enabled_protocols
     
@@ -252,6 +274,15 @@ class ConfigParser:
             return self.config.industrial_protocols.mqtt.devices
         return {}
     
+    def get_opcua_devices(self) -> Dict[str, OPCUADeviceConfig]:
+        """Get OPC-UA device configurations."""
+        if (self.config and
+            self.config.industrial_protocols and
+            self.config.industrial_protocols.opcua and
+            self.config.industrial_protocols.opcua.enabled):
+            return self.config.industrial_protocols.opcua.devices
+        return {}
+
     def get_network_config(self) -> NetworkConfig:
         """Get network configuration."""
         return self.config.network if self.config else NetworkConfig()
@@ -272,6 +303,10 @@ class ConfigParser:
         if protocol == "mqtt":
             mqtt_config = self.config.industrial_protocols.mqtt
             return mqtt_config is not None and mqtt_config.enabled
+
+        if protocol == "opcua":
+            opcua_config = self.config.industrial_protocols.opcua
+            return opcua_config is not None and opcua_config.enabled
 
         return False
     

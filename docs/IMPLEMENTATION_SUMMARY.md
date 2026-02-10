@@ -2,20 +2,21 @@
 
 **Complete overview of what has been built and what's ready to use**
 
-Version: 0.2.0
-Status: Production Ready (Modbus TCP + MQTT)
-Last Updated: February 2, 2026
+Version: 0.4.0
+Status: Production Ready (Modbus TCP + MQTT + OPC-UA)
+Last Updated: February 10, 2026
 
 ---
 
 ## 🎯 Executive Summary
 
-The Universal Simulation Engine is a **production-ready industrial protocol simulator** that allows developers to test industrial IoT applications without physical hardware. Both Modbus TCP and MQTT protocols are complete and fully functional with realistic data generation, comprehensive API, and web-based monitoring.
+The Universal Simulation Engine is a **production-ready industrial protocol simulator** that allows developers to test industrial IoT applications without physical hardware. Modbus TCP, MQTT, and OPC-UA protocols are complete and fully functional with realistic data generation, comprehensive API, and web-based monitoring.
 
 ### What You Can Do Right Now
 
 ✅ Simulate 1-1000+ Modbus TCP devices
 ✅ Simulate MQTT IoT sensors with **built-in broker**
+✅ Simulate OPC-UA industrial equipment (CNC, PLC, Robot)
 ✅ Generate realistic industrial data patterns
 ✅ Monitor devices via REST API
 ✅ View live data in web dashboard
@@ -240,7 +241,7 @@ HR[40004] = Fault Code (0=No Fault, 1-10=Various faults)
 industrial_protocols:
   mqtt:
     enabled: true
-    use_embedded_broker: true  # Built-in broker
+    use_embedded_broker: true # Built-in broker
     broker_host: "localhost"
     broker_port: 1883
     devices:
@@ -251,6 +252,92 @@ industrial_protocols:
         publish_interval: 5.0
         qos: 1
 ```
+
+---
+
+### 3b. **OPC-UA Protocol** ✅ Complete
+
+#### OPC-UA Simulator (`src/protocols/industrial/opcua/opcua_simulator.py`)
+
+**OPCUADevice Class:**
+
+- Runs a dedicated `asyncua` OPC-UA server per device
+- Builds hierarchical address space (DeviceSet/Identification/Parameters/Status)
+- Background async loop updates node values at configured intervals
+- Node value caching for synchronous API access
+- Configurable security mode and application URI
+
+**OPCUADeviceManager Class:**
+
+- Manages multiple OPC-UA device instances
+- Port allocation via IntelligentPortManager
+- Semaphore-limited parallel server startup
+- Health status aggregation
+- Device restart capability
+
+#### Device Types
+
+**CNC Machine Monitor (`opcua_cnc_machine`):**
+
+- SpindleSpeed, FeedRate, ToolWearPercent, PartCount
+- AxisPosition_X/Y/Z, ProgramName, MachineState
+- Tool wear progression with periodic resets (tool change simulation)
+
+**PLC Process Controller (`opcua_plc_controller`):**
+
+- ProcessValue, Setpoint, ControlOutput, Mode
+- HighAlarm, LowAlarm, IntegralTerm, DerivativeTerm, Error
+- PID control loop simulation with setpoint tracking
+
+**Industrial Robot (`opcua_industrial_robot`):**
+
+- JointAngle_1 through JointAngle_6, TCPPosition_X/Y/Z
+- TCPOrientation_Rx/Ry/Rz, ProgramState, CycleTime
+- CycleCount, PayloadKg, SpeedPercent
+
+#### Address Space Structure
+
+```
+Root
+└── Objects
+    └── DeviceSet
+        └── {DeviceName}
+            ├── Identification
+            │   ├── Manufacturer (String)
+            │   ├── Model (String)
+            │   └── SerialNumber (String)
+            ├── Parameters
+            │   └── {device-specific nodes}
+            └── Status
+                ├── DeviceHealth (String)
+                ├── ErrorCode (Int32)
+                └── OperatingMode (String)
+```
+
+#### Configuration Example
+
+```yaml
+industrial_protocols:
+  opcua:
+    enabled: true
+    security_mode: "None"
+    security_policy: "None"
+    application_uri: "urn:protocol-sim-engine:opcua:server"
+    devices:
+      cnc_machines:
+        count: 1
+        port_start: 4840
+        device_template: "opcua_cnc_machine"
+        update_interval: 1.0
+        data_config:
+          spindle_speed_range: [0, 24000]
+          feed_rate_range: [0, 15000]
+```
+
+#### API Endpoints
+
+- `GET /opcua/servers` - List all OPC-UA server endpoints with status
+- `GET /opcua/devices/{id}/nodes` - Read current node values for a device
 
 ---
 
@@ -292,6 +379,27 @@ industrial_protocols:
 - Realistic ramp-up/down
 - Fault injection (0.01% probability)
 
+**CNC Machine:**
+
+- Spindle speed with vibration patterns
+- Tool wear that increases over time with periodic resets
+- Axis positions tracing machining paths
+- Part count incrementing over time
+
+**PLC Controller:**
+
+- PID control loop with setpoint tracking
+- Overshoot and settling behavior
+- Mode switching (AUTO/MANUAL/CASCADE)
+- High/low alarm activation
+
+**Industrial Robot:**
+
+- Joint angles moving through programmed positions
+- Cycle time with realistic variation
+- Payload changes between operations
+- Program state transitions
+
 ---
 
 ### 5. **REST API** ✅ Complete (15+ Endpoints)
@@ -320,6 +428,11 @@ industrial_protocols:
 - `GET /mqtt/broker` - MQTT broker status (embedded: true/false)
 - `GET /mqtt/topics` - All active MQTT topics
 - `GET /mqtt/devices/{id}/messages` - Recent messages from device
+
+**OPC-UA-Specific Endpoints:**
+
+- `GET /opcua/servers` - List all OPC-UA server endpoints and status
+- `GET /opcua/devices/{id}/nodes` - Current node values for a device
 
 **Data Export:**
 
@@ -517,8 +630,9 @@ industrial_protocols:
 
 **Provided Examples:**
 
-1. `simple_factory.yml` - 3 devices (quick start)
-2. `large_factory.yml` - 100 devices (performance testing)
+1. `simple_factory.yml` - 3 Modbus devices (quick start)
+2. `large_factory.yml` - 50+ Modbus devices (performance testing)
+3. `full_factory.yml` - All 3 protocols: Modbus + MQTT + OPC-UA (multi-protocol)
 
 **Coming Soon:**
 
@@ -647,7 +761,6 @@ curl http://localhost:8080/devices | jq
 
 ### Protocols
 
-- ❌ OPC-UA (planned)
 - ❌ Ethernet/IP (planned)
 - ❌ BLE/Bluetooth (planned)
 - ❌ CCTV/RTSP (planned)
@@ -799,6 +912,7 @@ universal-simulation-engine/
 
 - [x] Modbus TCP protocol (temperature, pressure, motor)
 - [x] MQTT protocol with embedded broker (sensors, meters, trackers)
+- [x] OPC-UA protocol (CNC machine, PLC controller, industrial robot)
 - [x] Realistic data generation with industrial patterns
 - [x] REST API with 15+ endpoints
 - [x] Real-time data monitor web interface
@@ -818,12 +932,11 @@ universal-simulation-engine/
 - [x] CI/CD integration
 - [x] Docker deployment
 - [x] Multi-device testing (1-100+ devices)
-- [x] Multi-protocol simulation (Modbus + MQTT)
+- [x] Multi-protocol simulation (Modbus + MQTT + OPC-UA)
 
 **Not Yet Ready for:**
 
 - [ ] Production data logging
-- [ ] OPC-UA protocol
 - [ ] Cloud integration
 - [ ] Kubernetes orchestration
 - [ ] Advanced fault injection
@@ -855,11 +968,11 @@ universal-simulation-engine/
 
 ---
 
-**Status: Production Ready for Modbus TCP + MQTT** ✅
+**Status: Production Ready for Modbus TCP + MQTT + OPC-UA** ✅
 
-**Version: 0.2.0**
+**Version: 0.4.0**
 
-**Last Updated: January 8, 2026**
+**Last Updated: February 10, 2026**
 
 ---
 

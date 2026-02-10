@@ -490,38 +490,24 @@ What do you think about moving it to utils/validation.py?"
 
 ## 🏗️ Adding New Protocols
 
-Want to add MQTT, OPC-UA, or another protocol? Here's the structure:
+Modbus TCP, MQTT, and OPC-UA are already implemented. Want to add Ethernet/IP, BLE, or another protocol? Follow the established patterns:
 
-```python
-# src/protocols/industrial/mqtt/mqtt_simulator.py
-from abc import ABC, abstractmethod
+**Existing implementations to reference:**
 
-class MQTTDevice(ABC):
-    """Base class for MQTT devices."""
-
-    def __init__(self, device_id: str, config: dict):
-        self.device_id = device_id
-        self.config = config
-
-    @abstractmethod
-    def generate_data(self) -> dict:
-        """Generate device data."""
-        pass
-
-    @abstractmethod
-    def publish_data(self) -> None:
-        """Publish data to MQTT broker."""
-        pass
-```
+- `src/protocols/industrial/modbus/` - Modbus TCP (register-based)
+- `src/protocols/industrial/mqtt/` - MQTT (message-based with embedded broker)
+- `src/protocols/industrial/opcua/` - OPC-UA (address-space based with dedicated servers)
 
 **Steps:**
 
 1. Create protocol directory in `src/protocols/industrial/`
-2. Implement base device class
-3. Add device templates in `config/device_templates/`
-4. Write comprehensive tests
-5. Update documentation
-6. Open PR with examples
+2. Implement `Device` and `DeviceManager` classes following existing patterns
+3. Add Pydantic config models to `src/config_parser.py`
+4. Add data generators to `src/data_patterns/industrial_patterns.py`
+5. Wire into `src/orchestrator.py` and add API endpoints to `src/main.py`
+6. Update frontend types and `DataMonitor.tsx` formatting
+7. Write comprehensive tests in `tests/unit/`
+8. Update documentation and open PR with examples
 
 ## 🐳 Docker Best Practices
 
