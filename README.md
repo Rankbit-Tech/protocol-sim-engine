@@ -784,7 +784,7 @@ Built for the industrial IoT community to accelerate development and testing.
 
 - GitHub Issues for bug reports
 - Discussions for questions
-- Email: support@example.com
+- Email: yash.solanki@rankbit.tech
 
 ---
 

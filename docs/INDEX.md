@@ -229,7 +229,7 @@ Last Updated: February 10, 2026
 - **Quick Questions**: Check [Common Issues](troubleshooting/common_issues.md)
 - **Bug Reports**: [GitHub Issues](https://github.com/yourusername/universal-simulation-engine/issues)
 - **Feature Requests**: [GitHub Discussions](https://github.com/yourusername/universal-simulation-engine/discussions)
-- **Email Support**: support@example.com
+- **Email Support**: yash.solanki@rankbit.tech
 
 ---
 

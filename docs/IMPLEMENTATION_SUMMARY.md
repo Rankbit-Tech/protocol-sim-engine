@@ -902,7 +902,7 @@ universal-simulation-engine/
 
 - GitHub Issues (bug reports)
 - GitHub Discussions (questions)
-- Email: support@example.com
+- Email: yash.solanki@rankbit.tech
 
 ---
 
