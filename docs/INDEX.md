@@ -2,7 +2,7 @@
 
 **Complete documentation for the Universal Simulation Engine**
 
-Last Updated: February 2, 2026
+Last Updated: February 3, 2026
 
 ---
 
@@ -164,8 +164,8 @@ Last Updated: February 2, 2026
   - Gateway pattern for reliable multi-device publishing
 - **Configuration System** - YAML-based configuration
 - **REST API** - 15+ endpoints for monitoring/control
-- **Web Dashboard** - Live monitoring interface
-- **Real-Time Data Monitor** - Streaming data viewer
+- **React Frontend** - Modern responsive dashboard (React + TypeScript + shadcn/ui)
+- **Real-Time Data Monitor** - Streaming data viewer with multi-select device filter
 - **Port Management** - Automatic allocation and conflict prevention
 - **Docker Support** - Single-image deployment
 - **Testing Framework** - Unit tests, integration tests
@@ -228,4 +228,4 @@ Last Updated: February 2, 2026
 
 **Happy Simulating! 🚀**
 
-_This documentation is continuously updated. Last update: February 2, 2026_
+_This documentation is continuously updated. Last update: February 3, 2026_

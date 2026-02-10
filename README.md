@@ -62,12 +62,13 @@ docker run -d \
 ### Available Docker Tags
 
 - `latest` - Latest stable release
-- `0.1.0` - Specific version (recommended for production)
-- `0.1` - Minor version (receives patch updates)
+- `0.3.0` - Current version with React frontend
+- `0.2.0` - Previous stable version
+- `0.1.0` - Initial release
 
 ```bash
 # Use specific version for production
-docker pull developeryashsolanki/protocol-sim-engine:0.1.0
+docker pull developeryashsolanki/protocol-sim-engine:0.3.0
 ```
 
 ### Build from Source (Optional)
@@ -418,12 +419,21 @@ python -m pytest tests/integration/ -v
 
 ## 📊 Monitoring Dashboard
 
-Access the web dashboard at `http://localhost:8080/dashboard` to:
+Access the web dashboard at `http://localhost:8080`:
 
-- View live device status
-- Monitor data in real-time
-- Check system health
-- View port utilization
+**Dashboard** (`/dashboard`)
+- System status overview (device count, protocols, health, uptime)
+- Protocol list with device counts and status indicators
+- Device list with real-time status
+
+**Data Monitor** (`/data-monitor`)
+- Real-time telemetry streaming from all devices
+- Multi-select device filter with checkboxes
+- Configurable refresh rates (1s, 2s, 5s, 10s)
+- Pause/resume data streaming
+- Export logs as text file
+
+The frontend is built with React, TypeScript, and shadcn/ui components.
 
 ## 🛠️ Configuration Reference
 
@@ -548,7 +558,7 @@ data_config:
 
 ```
 universal-simulation-engine/
-├── src/                          # Source code
+├── src/                          # Python backend
 │   ├── protocols/               # Protocol implementations
 │   │   └── industrial/
 │   │       ├── modbus/         # Modbus TCP simulator
@@ -557,12 +567,19 @@ universal-simulation-engine/
 │   ├── orchestrator.py         # Main orchestrator
 │   ├── port_manager.py         # Port allocation
 │   └── data_patterns/          # Realistic data generation
+├── frontend/                    # React frontend
+│   ├── src/
+│   │   ├── components/         # React components
+│   │   │   ├── ui/            # shadcn/ui components
+│   │   │   ├── Dashboard.tsx  # Main dashboard
+│   │   │   └── DataMonitor.tsx # Real-time monitor
+│   │   ├── lib/               # API client & utilities
+│   │   └── types/             # TypeScript interfaces
+│   ├── package.json
+│   └── vite.config.ts
 ├── examples/                    # Example configurations
 │   └── configs/                # Ready-to-use configs
 ├── tests/                       # Test suite
-│   ├── unit/                   # Unit tests
-│   ├── integration/            # Integration tests
-│   └── smoke/                  # Docker deployment tests
 ├── config/                      # Default configuration
 ├── tools/                       # Utility tools
 └── docs/                        # Documentation
@@ -618,8 +635,8 @@ Built for the industrial IoT community to accelerate development and testing.
 
 ---
 
-**Status**: Production Ready - Modbus TCP ✅ | MQTT ✅
+**Status**: Production Ready - Modbus TCP ✅ | MQTT ✅ | React Frontend ✅
 
-**Version**: 0.2.0
+**Version**: 0.3.0
 
 **Last Updated**: February 2026
