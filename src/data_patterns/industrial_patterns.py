@@ -443,15 +443,15 @@ class IndustrialDataGenerator:
             })
 
         elif device_type == "cnc_machine":
-            cnc_config = self.pattern_config.get("cnc", {})
+            cnc_config = self.pattern_config.get("cnc", self.pattern_config)
             data.update(self.generate_cnc_machine_data(cnc_config))
 
         elif device_type == "plc_controller":
-            plc_config = self.pattern_config.get("plc", {})
+            plc_config = self.pattern_config.get("plc", self.pattern_config)
             data.update(self.generate_plc_controller_data(plc_config))
 
         elif device_type == "industrial_robot":
-            robot_config = self.pattern_config.get("robot", {})
+            robot_config = self.pattern_config.get("robot", self.pattern_config)
             data.update(self.generate_robot_data(robot_config))
 
         return data
@@ -602,7 +602,7 @@ class IndustrialDataGenerator:
 
     def generate_cnc_machine_data(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Generate CNC machine monitoring data.
+        Generate CNC machine monitoring data with realistic state-driven behavior.
 
         Args:
             config: CNC machine configuration parameters
@@ -613,47 +613,92 @@ class IndustrialDataGenerator:
         speed_range = config.get("spindle_speed_range", [0, 24000])
         feed_range = config.get("feed_rate_range", [0, 15000])
 
-        # Machine state transitions
-        states = ["IDLE", "RUNNING", "RUNNING", "RUNNING", "SETUP", "ERROR"]
+        # Initialize state machine
         if "machine_state" not in self.last_values:
             self.last_values["machine_state"] = "RUNNING"
+            self.last_values["state_ticks"] = 0
 
-        # Occasional state change
-        if self.random_state.random() < 0.02:
-            self.last_values["machine_state"] = self.random_state.choice(states)
+        self.last_values["state_ticks"] = self.last_values.get("state_ticks", 0) + 1
+        state = self.last_values["machine_state"]
+        ticks = self.last_values["state_ticks"]
+        roll = self.random_state.random()
+
+        # State-aware transitions: each state has its own transition logic
+        if state == "RUNNING":
+            if roll < 0.005:
+                self.last_values["machine_state"] = "ERROR"
+                self.last_values["state_ticks"] = 0
+            elif roll < 0.015:
+                self.last_values["machine_state"] = "IDLE"
+                self.last_values["state_ticks"] = 0
+        elif state == "IDLE":
+            # Idle machines should start running again fairly quickly
+            if roll < 0.15:
+                self.last_values["machine_state"] = "RUNNING"
+                self.last_values["state_ticks"] = 0
+            elif roll < 0.18:
+                self.last_values["machine_state"] = "SETUP"
+                self.last_values["state_ticks"] = 0
+        elif state == "ERROR":
+            # Auto-recover from error after a short pause (5-15 ticks)
+            if ticks > 5 and roll < 0.25:
+                self.last_values["machine_state"] = "IDLE"
+                self.last_values["state_ticks"] = 0
+        elif state == "SETUP":
+            # Setup completes after a few ticks
+            if ticks > 3 and roll < 0.20:
+                self.last_values["machine_state"] = "RUNNING"
+                self.last_values["state_ticks"] = 0
+                # New program after setup
+                programs = config.get("programs", ["G-Code_001", "G-Code_002", "G-Code_003"])
+                self.last_values["program_name"] = self.random_state.choice(programs)
 
         state = self.last_values["machine_state"]
 
-        # Spindle speed depends on state
+        # Spindle speed depends on state with ramp-up behavior
+        base_speed = config.get("base_spindle_speed", 12000.0)
         if state == "RUNNING":
-            base_speed = config.get("base_spindle_speed", 12000.0)
-            spindle_speed = base_speed + self.random_state.normal(0, base_speed * 0.02)
+            # Ramp up from idle or vary during operation
+            target_speed = base_speed + self.random_state.normal(0, base_speed * 0.03)
+            last_speed = self.last_values.get("spindle_speed", base_speed * 0.5)
+            # Smooth ramp toward target
+            spindle_speed = last_speed + (target_speed - last_speed) * 0.3
             spindle_speed = max(speed_range[0], min(speed_range[1], spindle_speed))
         elif state == "SETUP":
             spindle_speed = self.random_state.uniform(500, 2000)
         else:
-            spindle_speed = 0.0
+            # Ramp down
+            last_speed = self.last_values.get("spindle_speed", 0)
+            spindle_speed = max(0, last_speed * 0.7)
+        self.last_values["spindle_speed"] = spindle_speed
 
-        # Feed rate
+        # Feed rate with similar dynamics
+        base_feed = config.get("base_feed_rate", 5000.0)
         if state == "RUNNING":
-            base_feed = config.get("base_feed_rate", 5000.0)
-            feed_rate = base_feed + self.random_state.normal(0, base_feed * 0.05)
+            target_feed = base_feed + self.random_state.normal(0, base_feed * 0.05)
+            last_feed = self.last_values.get("feed_rate", base_feed * 0.5)
+            feed_rate = last_feed + (target_feed - last_feed) * 0.3
             feed_rate = max(feed_range[0], min(feed_range[1], feed_rate))
+        elif state == "SETUP":
+            feed_rate = self.random_state.uniform(100, 500)
         else:
-            feed_rate = 0.0
+            last_feed = self.last_values.get("feed_rate", 0)
+            feed_rate = max(0, last_feed * 0.7)
+        self.last_values["feed_rate"] = feed_rate
 
         # Tool wear increases over time, resets on tool change
         if "tool_wear" not in self.last_values:
-            self.last_values["tool_wear"] = 0.0
+            self.last_values["tool_wear"] = self.random_state.uniform(0, 30)
 
         if state == "RUNNING":
             wear_rate = config.get("tool_wear_rate", 0.01)
-            self.last_values["tool_wear"] += wear_rate + self.random_state.normal(0, 0.002)
+            self.last_values["tool_wear"] += wear_rate + self.random_state.normal(0, 0.003)
 
-        # Tool change at ~90% wear
+        # Tool change at ~90% wear triggers SETUP
         if self.last_values["tool_wear"] > 90:
             self.last_values["tool_wear"] = 0.0
             self.last_values["machine_state"] = "SETUP"
+            self.last_values["state_ticks"] = 0
 
         tool_wear = max(0, min(100, self.last_values["tool_wear"]))
 
@@ -661,15 +706,21 @@ class IndustrialDataGenerator:
         if "part_count" not in self.last_values:
             self.last_values["part_count"] = 0
 
-        if state == "RUNNING" and self.random_state.random() < 0.05:
+        if state == "RUNNING" and self.random_state.random() < 0.08:
             self.last_values["part_count"] += 1
 
-        # Axis positions trace a path
+        # Axis positions trace a realistic toolpath
         current_time = time.time()
         workspace = config.get("workspace_mm", [500, 400, 300])
-        axis_x = workspace[0] / 2 + (workspace[0] / 3) * math.sin(current_time * 0.3)
-        axis_y = workspace[1] / 2 + (workspace[1] / 3) * math.cos(current_time * 0.2)
-        axis_z = workspace[2] / 2 + (workspace[2] / 4) * math.sin(current_time * 0.5)
+        if state == "RUNNING":
+            axis_x = workspace[0] / 2 + (workspace[0] / 3) * math.sin(current_time * 0.5)
+            axis_y = workspace[1] / 2 + (workspace[1] / 3) * math.cos(current_time * 0.4)
+            axis_z = workspace[2] / 2 + (workspace[2] / 4) * math.sin(current_time * 0.7)
+        else:
+            # Park position with slight drift
+            axis_x = workspace[0] / 2 + self.random_state.normal(0, 0.5)
+            axis_y = workspace[1] / 2 + self.random_state.normal(0, 0.5)
+            axis_z = workspace[2] * 0.9 + self.random_state.normal(0, 0.5)
 
         programs = config.get("programs", ["G-Code_001", "G-Code_002", "G-Code_003"])
         if "program_name" not in self.last_values:
@@ -705,39 +756,58 @@ class IndustrialDataGenerator:
         ki = config.get("ki", 0.1)
         kd = config.get("kd", 0.05)
 
-        # Mode transitions
-        modes = ["AUTO", "AUTO", "AUTO", "MANUAL", "CASCADE"]
+        # Mode transitions with state-aware logic
         if "plc_mode" not in self.last_values:
             self.last_values["plc_mode"] = "AUTO"
             self.last_values["integral_term"] = 0.0
             self.last_values["last_error"] = 0.0
             self.last_values["process_value"] = setpoint + self.random_state.normal(0, 5)
+            self.last_values["setpoint_target"] = setpoint
 
-        if self.random_state.random() < 0.01:
-            self.last_values["plc_mode"] = self.random_state.choice(modes)
+        roll = self.random_state.random()
+        mode = self.last_values["plc_mode"]
+
+        if mode == "AUTO":
+            if roll < 0.005:
+                self.last_values["plc_mode"] = "MANUAL"
+            elif roll < 0.008:
+                self.last_values["plc_mode"] = "CASCADE"
+        elif mode == "MANUAL":
+            if roll < 0.08:
+                self.last_values["plc_mode"] = "AUTO"
+        elif mode == "CASCADE":
+            if roll < 0.03:
+                self.last_values["plc_mode"] = "AUTO"
 
         mode = self.last_values["plc_mode"]
 
-        # Process value drifts naturally with disturbances
-        disturbance = self.random_state.normal(0, 1.5)
+        # Occasional setpoint changes (simulates operator adjustments)
+        if self.random_state.random() < 0.01:
+            sp_variation = self.random_state.uniform(-5, 5)
+            self.last_values["setpoint_target"] = max(
+                pv_range[0] + 10,
+                min(pv_range[1] - 10, setpoint + sp_variation)
+            )
+        active_setpoint = self.last_values["setpoint_target"]
+
+        # Process value with realistic disturbances
+        disturbance = self.random_state.normal(0, 2.0)
         pv = self.last_values["process_value"] + disturbance
 
         if mode == "AUTO" or mode == "CASCADE":
-            # PID control drives process value toward setpoint
-            error = setpoint - pv
+            error = active_setpoint - pv
             self.last_values["integral_term"] += error * ki
-            # Integral windup protection
             self.last_values["integral_term"] = max(-50, min(50, self.last_values["integral_term"]))
             derivative = error - self.last_values["last_error"]
             control_output = kp * error + self.last_values["integral_term"] + kd * derivative
             control_output = max(0, min(100, control_output))
 
-            # Control output drives process value toward setpoint
-            pv += control_output * 0.1 - 5.0  # Simplified plant model
+            pv += control_output * 0.1 - 5.0
             self.last_values["last_error"] = error
         else:
-            # Manual mode - control output is fixed
             control_output = config.get("manual_output", 50.0)
+            # In manual mode, process drifts more
+            pv += self.random_state.normal(0, 1.0)
 
         pv = max(pv_range[0], min(pv_range[1], pv))
         self.last_values["process_value"] = pv
@@ -748,19 +818,19 @@ class IndustrialDataGenerator:
 
         return {
             "process_value": round(pv, 2),
-            "setpoint": round(setpoint, 2),
+            "setpoint": round(active_setpoint, 2),
             "control_output": round(control_output, 2),
             "mode": mode,
             "high_alarm": pv > high_alarm_threshold,
             "low_alarm": pv < low_alarm_threshold,
             "integral_term": round(self.last_values["integral_term"], 3),
             "derivative_term": round(self.last_values.get("last_error", 0) * kd, 3),
-            "error": round(setpoint - pv, 2)
+            "error": round(active_setpoint - pv, 2)
         }
 
     def generate_robot_data(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Generate industrial robot monitoring data.
+        Generate industrial robot monitoring data with realistic motion.
 
         Args:
             config: Robot configuration parameters
@@ -771,17 +841,36 @@ class IndustrialDataGenerator:
         joint_count = config.get("joint_count", 6)
         max_speed = config.get("max_speed_percent", 100)
 
-        # Program state transitions
-        states = ["RUNNING", "RUNNING", "RUNNING", "PAUSED", "STOPPED"]
+        # Initialize state machine
         if "robot_state" not in self.last_values:
             self.last_values["robot_state"] = "RUNNING"
             self.last_values["cycle_count"] = 0
+            self.last_values["robot_state_ticks"] = 0
             self.last_values["joint_targets"] = [
                 self.random_state.uniform(-180, 180) for _ in range(joint_count)
             ]
 
-        if self.random_state.random() < 0.02:
-            self.last_values["robot_state"] = self.random_state.choice(states)
+        self.last_values["robot_state_ticks"] = self.last_values.get("robot_state_ticks", 0) + 1
+        state = self.last_values["robot_state"]
+        ticks = self.last_values["robot_state_ticks"]
+        roll = self.random_state.random()
+
+        # State-aware transitions
+        if state == "RUNNING":
+            if roll < 0.008:
+                self.last_values["robot_state"] = "PAUSED"
+                self.last_values["robot_state_ticks"] = 0
+            elif roll < 0.003:
+                self.last_values["robot_state"] = "STOPPED"
+                self.last_values["robot_state_ticks"] = 0
+        elif state == "PAUSED":
+            if ticks > 3 and roll < 0.20:
+                self.last_values["robot_state"] = "RUNNING"
+                self.last_values["robot_state_ticks"] = 0
+        elif state == "STOPPED":
+            if ticks > 5 and roll < 0.12:
+                self.last_values["robot_state"] = "RUNNING"
+                self.last_values["robot_state_ticks"] = 0
 
         state = self.last_values["robot_state"]
 
@@ -794,13 +883,12 @@ class IndustrialDataGenerator:
                 target = self.last_values["joint_targets"][i]
                 current = self.last_values["joint_angles"][i]
                 diff = target - current
-                # Move toward target with some speed
-                step = min(abs(diff), 2.0) * (1 if diff > 0 else -1)
-                self.last_values["joint_angles"][i] = current + step + self.random_state.normal(0, 0.1)
+                step = min(abs(diff), 3.0) * (1 if diff > 0 else -1)
+                self.last_values["joint_angles"][i] = current + step + self.random_state.normal(0, 0.15)
 
             # Check if near target, pick new target
             at_target = all(
-                abs(self.last_values["joint_angles"][i] - self.last_values["joint_targets"][i]) < 3.0
+                abs(self.last_values["joint_angles"][i] - self.last_values["joint_targets"][i]) < 5.0
                 for i in range(joint_count)
             )
             if at_target:
@@ -811,32 +899,40 @@ class IndustrialDataGenerator:
 
         joint_angles = [round(a, 2) for a in self.last_values["joint_angles"]]
 
-        # TCP (Tool Center Point) position derived from joint angles
+        # TCP position with state-dependent motion
         current_time = time.time()
-        tcp_x = 500 + 300 * math.sin(current_time * 0.4) + self.random_state.normal(0, 1)
-        tcp_y = 200 + 200 * math.cos(current_time * 0.3) + self.random_state.normal(0, 1)
-        tcp_z = 400 + 150 * math.sin(current_time * 0.5) + self.random_state.normal(0, 1)
+        if state == "RUNNING":
+            tcp_x = 500 + 300 * math.sin(current_time * 0.6) + self.random_state.normal(0, 2)
+            tcp_y = 200 + 200 * math.cos(current_time * 0.5) + self.random_state.normal(0, 2)
+            tcp_z = 400 + 150 * math.sin(current_time * 0.7) + self.random_state.normal(0, 2)
+        else:
+            tcp_x = 500 + self.random_state.normal(0, 0.3)
+            tcp_y = 200 + self.random_state.normal(0, 0.3)
+            tcp_z = 600 + self.random_state.normal(0, 0.3)
 
         # TCP orientation
-        tcp_rx = 180 + 10 * math.sin(current_time * 0.2)
-        tcp_ry = 5 * math.cos(current_time * 0.3)
-        tcp_rz = 90 + 5 * math.sin(current_time * 0.4)
+        tcp_rx = 180 + 10 * math.sin(current_time * 0.3)
+        tcp_ry = 5 * math.cos(current_time * 0.4)
+        tcp_rz = 90 + 5 * math.sin(current_time * 0.5)
 
         # Cycle time with variation
         base_cycle_time = config.get("base_cycle_time", 15.0)
-        cycle_time = base_cycle_time + self.random_state.normal(0, base_cycle_time * 0.05)
+        cycle_time = base_cycle_time + self.random_state.normal(0, base_cycle_time * 0.08)
         cycle_time = max(5.0, cycle_time)
 
-        # Payload
+        # Payload changes between cycles
         payload_range = config.get("payload_range", [0, 20])
         if "payload" not in self.last_values:
             self.last_values["payload"] = self.random_state.uniform(payload_range[0], payload_range[1])
-        if self.random_state.random() < 0.03:
+        if self.random_state.random() < 0.05:
             self.last_values["payload"] = self.random_state.uniform(payload_range[0], payload_range[1])
 
-        # Speed percent
+        # Speed percent with variation during RUNNING
         if state == "RUNNING":
-            speed = max_speed * (0.8 + self.random_state.uniform(0, 0.2))
+            base = max_speed * 0.85
+            speed = base + self.random_state.uniform(0, max_speed * 0.15)
+        elif state == "PAUSED":
+            speed = 0.0
         else:
             speed = 0.0
 
