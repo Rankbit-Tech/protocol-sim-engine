@@ -13,10 +13,14 @@ services:
       # Mount custom configuration
       - ./examples/configs/simple_factory.yml:/config/factory.yml:ro
     ports:
-      # Modbus devices
-      - "15000-15002:15000-15002"
       # HTTP API
       - "8080:8080"
+      # Modbus devices
+      - "15000-15002:15000-15002"
+      # MQTT broker
+      - "1883:1883"
+      # OPC-UA servers
+      - "4840-4850:4840-4850"
     restart: unless-stopped
     healthcheck:
       test:

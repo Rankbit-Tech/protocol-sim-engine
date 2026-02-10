@@ -1,6 +1,6 @@
 [project]
 name = "industrial-facility-simulator"
-version = "0.1.0"
+version = "0.4.0"
 description = "Open Source Industrial Protocol & Device Simulation Platform"
 authors = [
     {name = "WellSky",email = "wellsky@example.com"}

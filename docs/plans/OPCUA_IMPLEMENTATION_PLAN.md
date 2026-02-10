@@ -3,7 +3,7 @@
 **Author:** Claude (AI-assisted)
 **Date:** February 10, 2026
 **Target Version:** 0.4.0
-**Status:** Proposed
+**Status:** Completed
 
 ---
 
@@ -14,6 +14,7 @@
 OPC Unified Architecture (OPC-UA) is the modern, platform-independent standard for industrial data exchange. Developed by the OPC Foundation, it replaces the older COM/DCOM-based OPC Classic with a secure, cross-platform protocol that runs on everything from embedded PLCs to cloud servers.
 
 Key characteristics:
+
 - **Information Modeling** — OPC-UA organizes data as a structured address space of typed nodes (objects, variables, methods), not flat register tables like Modbus.
 - **Client-Server Architecture** — Clients browse the address space and read/write/subscribe to node values. Our simulator will act as an OPC-UA **server**.
 - **Subscriptions & Monitored Items** — Clients can subscribe to value changes and get pushed updates at configurable intervals, rather than polling.
@@ -23,6 +24,7 @@ Key characteristics:
 ### Why Implement It?
 
 OPC-UA is the **#1 standard for modern industrial automation**. It's mandated or preferred by:
+
 - **Industry 4.0 / Smart Manufacturing** — The reference architecture (RAMI 4.0) specifies OPC-UA as the communication layer.
 - **Major PLC vendors** — Siemens, Rockwell/Allen-Bradley, Beckhoff, B&R all expose OPC-UA servers on their controllers.
 - **SCADA & MES systems** — Ignition, WinCC, FactoryTalk, AVEVA all use OPC-UA as a primary data source.
@@ -51,6 +53,7 @@ frontend/src/components/   → DataMonitor + Dashboard updates
 ### Protocol Library
 
 We will use **`asyncua`** (formerly `opcua-asyncio`), the actively maintained async Python OPC-UA library. It provides:
+
 - Full OPC-UA server implementation
 - Address space management
 - Subscription support
@@ -66,13 +69,14 @@ asyncua = ">=1.1.0"
 
 Following the convention of 3 device types per protocol:
 
-| # | Device Type | Template Name | Description | Industrial Use Case |
-|---|---|---|---|---|
-| 1 | **CNC Machine Monitor** | `opcua_cnc_machine` | Spindle speed, feed rate, tool wear, part count, axis positions | Machine tool monitoring |
-| 2 | **PLC Process Controller** | `opcua_plc_controller` | Setpoints, process values, PID outputs, mode, alarm states | Process control |
-| 3 | **Industrial Robot** | `opcua_industrial_robot` | Joint angles, TCP position, program state, cycle time, payload | Robotics monitoring |
+| #   | Device Type                | Template Name            | Description                                                     | Industrial Use Case     |
+| --- | -------------------------- | ------------------------ | --------------------------------------------------------------- | ----------------------- |
+| 1   | **CNC Machine Monitor**    | `opcua_cnc_machine`      | Spindle speed, feed rate, tool wear, part count, axis positions | Machine tool monitoring |
+| 2   | **PLC Process Controller** | `opcua_plc_controller`   | Setpoints, process values, PID outputs, mode, alarm states      | Process control         |
+| 3   | **Industrial Robot**       | `opcua_industrial_robot` | Joint angles, TCP position, program state, cycle time, payload  | Robotics monitoring     |
 
 These device types were chosen because:
+
 - They represent **equipment that typically exposes OPC-UA servers** in real factories.
 - They are distinct from the Modbus (sensors/drives) and MQTT (IoT/asset) device types.
 - They showcase OPC-UA's strength: **structured, hierarchical data** rather than flat registers.
@@ -107,6 +111,7 @@ class OPCUAConfig(BaseModel):
 ```
 
 Update `IndustrialProtocolsConfig`:
+
 ```python
 class IndustrialProtocolsConfig(BaseModel):
     modbus_tcp: Optional[ModbusConfig] = None
@@ -118,17 +123,17 @@ class IndustrialProtocolsConfig(BaseModel):
 
 **`OPCUADevice` class** — mirrors `ModbusDevice` structure:
 
-| Method | Purpose | Pattern Source |
-|---|---|---|
-| `__init__()` | Init device with config, port, data generator | Same as `ModbusDevice.__init__` |
-| `_extract_device_type()` | Map template name to device type string | Same as Modbus/MQTT |
-| `_build_address_space()` | Create OPC-UA nodes (replaces `_create_modbus_context`) | OPC-UA specific |
-| `_update_node_values()` | Update node values with generated data (replaces `_update_registers_with_realistic_data`) | OPC-UA specific |
-| `_data_update_loop()` | Async loop for periodic value updates | Same as Modbus |
-| `start()` | Create & start OPC-UA server + update loop | Same pattern as Modbus |
-| `stop()` | Stop server and cancel tasks | Same as Modbus |
-| `get_status()` | Return device status dict | Same as Modbus |
-| `get_node_data()` | Read current node values (replaces `get_register_data`) | OPC-UA specific |
+| Method                   | Purpose                                                                                   | Pattern Source                  |
+| ------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------- |
+| `__init__()`             | Init device with config, port, data generator                                             | Same as `ModbusDevice.__init__` |
+| `_extract_device_type()` | Map template name to device type string                                                   | Same as Modbus/MQTT             |
+| `_build_address_space()` | Create OPC-UA nodes (replaces `_create_modbus_context`)                                   | OPC-UA specific                 |
+| `_update_node_values()`  | Update node values with generated data (replaces `_update_registers_with_realistic_data`) | OPC-UA specific                 |
+| `_data_update_loop()`    | Async loop for periodic value updates                                                     | Same as Modbus                  |
+| `start()`                | Create & start OPC-UA server + update loop                                                | Same pattern as Modbus          |
+| `stop()`                 | Stop server and cancel tasks                                                              | Same as Modbus                  |
+| `get_status()`           | Return device status dict                                                                 | Same as Modbus                  |
+| `get_node_data()`        | Read current node values (replaces `get_register_data`)                                   | OPC-UA specific                 |
 
 **Address space structure** per device type:
 
@@ -152,6 +157,7 @@ Root
 ```
 
 **CNC Machine node values:**
+
 - `SpindleSpeed` (Double, RPM)
 - `FeedRate` (Double, mm/min)
 - `ToolWearPercent` (Double, 0-100%)
@@ -161,6 +167,7 @@ Root
 - `MachineState` (String: "IDLE"/"RUNNING"/"ERROR"/"SETUP")
 
 **PLC Process Controller node values:**
+
 - `ProcessValue` (Double, engineering units)
 - `Setpoint` (Double, engineering units)
 - `ControlOutput` (Double, 0-100%)
@@ -169,6 +176,7 @@ Root
 - `IntegralTerm` / `DerivativeTerm` (Double)
 
 **Industrial Robot node values:**
+
 - `JointAngles` (array of 6 Doubles, degrees)
 - `TCPPosition_X` / `_Y` / `_Z` (Double, mm)
 - `TCPOrientation_Rx` / `_Ry` / `_Rz` (Double, degrees)
@@ -179,18 +187,18 @@ Root
 
 **`OPCUADeviceManager` class** — mirrors `ModbusDeviceManager`:
 
-| Method | Purpose |
-|---|---|
-| `__init__()` | Store config and port manager reference |
-| `initialize()` | Build allocation plan, create device instances |
-| `_build_allocation_plan()` | Map device IDs to ("opcua", 1) port requirements |
-| `_create_devices()` | Allocate ports and instantiate `OPCUADevice` objects |
-| `get_allocation_requirements()` | Return plan for validation |
-| `start_all_devices()` | Start all OPC-UA servers (semaphore-limited parallelism) |
-| `stop_all_devices()` | Stop all servers, deallocate ports |
-| `get_health_status()` | Aggregate device statuses |
-| `get_device_status()` | Single device lookup |
-| `restart_device()` | Stop + start a device |
+| Method                          | Purpose                                                  |
+| ------------------------------- | -------------------------------------------------------- |
+| `__init__()`                    | Store config and port manager reference                  |
+| `initialize()`                  | Build allocation plan, create device instances           |
+| `_build_allocation_plan()`      | Map device IDs to ("opcua", 1) port requirements         |
+| `_create_devices()`             | Allocate ports and instantiate `OPCUADevice` objects     |
+| `get_allocation_requirements()` | Return plan for validation                               |
+| `start_all_devices()`           | Start all OPC-UA servers (semaphore-limited parallelism) |
+| `stop_all_devices()`            | Stop all servers, deallocate ports                       |
+| `get_health_status()`           | Aggregate device statuses                                |
+| `get_device_status()`           | Single device lookup                                     |
+| `restart_device()`              | Stop + start a device                                    |
 
 #### 3.3 Data Generation (`src/data_patterns/industrial_patterns.py`)
 
@@ -222,6 +230,7 @@ if self.config.industrial_protocols.opcua and self.config.industrial_protocols.o
 ```
 
 Update `get_device_data()` to handle the `"opcua"` protocol:
+
 ```python
 elif protocol_name == "opcua":
     return device.get_node_data()
@@ -281,6 +290,7 @@ industrial_protocols:
 #### 3.7 TypeScript Types (`frontend/src/types/index.ts`)
 
 Extend `Device` interface:
+
 ```typescript
 // OPC-UA specific
 endpoint_url?: string;
@@ -289,6 +299,7 @@ node_count?: number;
 ```
 
 Extend `DeviceData` to add an `opcua_nodes` field:
+
 ```typescript
 nodes?: {
   // CNC Machine
@@ -338,6 +349,7 @@ No structural changes needed — the Dashboard already dynamically reads protoco
 #### 3.10 Dockerfile
 
 Update the port EXPOSE directive to include OPC-UA ports:
+
 ```dockerfile
 EXPOSE 8080 1883 15000-15002 4840-4842
 ```
@@ -345,6 +357,7 @@ EXPOSE 8080 1883 15000-15002 4840-4842
 #### 3.11 Docker run command
 
 Update the recommended run command:
+
 ```bash
 docker run -d --name protocol-sim \
   -p 8080:8080 \
@@ -358,20 +371,20 @@ docker run -d --name protocol-sim \
 
 ## 4. File Change Summary
 
-| File | Action | Description |
-|---|---|---|
-| `pyproject.toml` | MODIFY | Add `asyncua >= 1.1.0` dependency |
-| `src/config_parser.py` | MODIFY | Add `OPCUADeviceConfig`, `OPCUAConfig`, update `IndustrialProtocolsConfig` |
-| `src/orchestrator.py` | MODIFY | Add OPC-UA manager initialization, update `get_device_data()` |
-| `src/main.py` | MODIFY | Add `/opcua/*` endpoints |
-| `src/protocols/industrial/opcua/__init__.py` | CREATE | Package init |
-| `src/protocols/industrial/opcua/opcua_simulator.py` | CREATE | `OPCUADevice` + `OPCUADeviceManager` |
-| `src/data_patterns/industrial_patterns.py` | MODIFY | Add 3 new generator methods, update `generate_device_data()` |
-| `config/default_config.yml` | MODIFY | Add `opcua` section with 3 device groups |
-| `frontend/src/types/index.ts` | MODIFY | Add OPC-UA fields to `Device` and `DeviceData` |
-| `frontend/src/components/DataMonitor.tsx` | MODIFY | Add OPC-UA data formatting |
-| `Dockerfile` | MODIFY | Expose OPC-UA ports |
-| `tests/unit/test_opcua_protocol.py` | CREATE | Unit tests for OPC-UA |
+| File                                                | Action | Description                                                                |
+| --------------------------------------------------- | ------ | -------------------------------------------------------------------------- |
+| `pyproject.toml`                                    | MODIFY | Add `asyncua >= 1.1.0` dependency                                          |
+| `src/config_parser.py`                              | MODIFY | Add `OPCUADeviceConfig`, `OPCUAConfig`, update `IndustrialProtocolsConfig` |
+| `src/orchestrator.py`                               | MODIFY | Add OPC-UA manager initialization, update `get_device_data()`              |
+| `src/main.py`                                       | MODIFY | Add `/opcua/*` endpoints                                                   |
+| `src/protocols/industrial/opcua/__init__.py`        | CREATE | Package init                                                               |
+| `src/protocols/industrial/opcua/opcua_simulator.py` | CREATE | `OPCUADevice` + `OPCUADeviceManager`                                       |
+| `src/data_patterns/industrial_patterns.py`          | MODIFY | Add 3 new generator methods, update `generate_device_data()`               |
+| `config/default_config.yml`                         | MODIFY | Add `opcua` section with 3 device groups                                   |
+| `frontend/src/types/index.ts`                       | MODIFY | Add OPC-UA fields to `Device` and `DeviceData`                             |
+| `frontend/src/components/DataMonitor.tsx`           | MODIFY | Add OPC-UA data formatting                                                 |
+| `Dockerfile`                                        | MODIFY | Expose OPC-UA ports                                                        |
+| `tests/unit/test_opcua_protocol.py`                 | CREATE | Unit tests for OPC-UA                                                      |
 
 **New files:** 2
 **Modified files:** 10
@@ -385,6 +398,7 @@ docker run -d --name protocol-sim \
 Following the exact structure of `test_modbus_protocol.py` and `test_mqtt_protocol.py`:
 
 **TestOPCUADeviceCreation**
+
 - `test_device_initialization` — Verify device_id, port, device_type, running state
 - `test_device_type_extraction` — Verify template-to-type mapping for all 3 types
 - `test_address_space_creation` — Verify nodes are created and readable
@@ -393,15 +407,18 @@ Following the exact structure of `test_modbus_protocol.py` and `test_mqtt_protoc
 - `test_device_status_reporting` — Verify `get_status()` structure
 
 **TestOPCUADeviceLifecycle**
+
 - `test_device_start_stop_lifecycle` — Mock server, verify start/stop state transitions
 - `test_device_uptime_tracking` — Verify uptime counter works
 
 **TestOPCUADeviceManager**
+
 - `test_device_manager_initialization` — Verify correct number of devices created
 - `test_allocation_plan_building` — Verify plan has correct device count and port requirements
 - `test_device_creation_and_port_allocation` — Verify unique port per device in correct range
 
 **TestOPCUADataPatterns**
+
 - `test_cnc_machine_data_generation` — Verify all CNC fields present and within bounds
 - `test_plc_controller_data_generation` — Verify PID-related fields present and within bounds
 - `test_robot_data_generation` — Verify joint angles, TCP position, program state
@@ -409,10 +426,12 @@ Following the exact structure of `test_modbus_protocol.py` and `test_mqtt_protoc
 - `test_part_count_increment` — Verify part count increments
 
 **TestOPCUAConfiguration**
+
 - `test_opcua_config_validation` — Valid and invalid configs
 - `test_opcua_device_config_validation` — Boundary testing for fields
 
 **TestOPCUAScalability**
+
 - `test_multiple_device_creation` — Create 30+ devices, verify < 5s init time
 - `test_port_allocation_efficiency` — Verify port manager handles OPC-UA allocations
 
@@ -443,32 +462,32 @@ Following the exact structure of `test_modbus_protocol.py` and `test_mqtt_protoc
 
 Execute in this order to maintain a working system at each step:
 
-| Step | What | Depends On | Estimated Effort |
-|---|---|---|---|
-| 1 | Add `asyncua` to `pyproject.toml` | Nothing | Small |
-| 2 | Add config models to `config_parser.py` | Nothing | Small |
-| 3 | Create `opcua_simulator.py` with `OPCUADevice` + `OPCUADeviceManager` | Steps 1-2 |  Large |
-| 4 | Add data generators to `industrial_patterns.py` | Nothing | Medium |
-| 5 | Wire into `orchestrator.py` | Steps 2-3 | Small |
-| 6 | Add API endpoints to `main.py` | Step 5 | Small |
-| 7 | Update `default_config.yml` | Step 2 | Small |
-| 8 | Write unit tests | Steps 2-4 | Medium |
-| 9 | Update frontend types and components | Step 6 | Medium |
-| 10 | Update Dockerfile and test Docker build | Step 7 | Small |
-| 11 | Run full integration tests | All | Medium |
-| 12 | Update documentation | All | Small |
+| Step | What                                                                  | Depends On | Estimated Effort |
+| ---- | --------------------------------------------------------------------- | ---------- | ---------------- |
+| 1    | Add `asyncua` to `pyproject.toml`                                     | Nothing    | Small            |
+| 2    | Add config models to `config_parser.py`                               | Nothing    | Small            |
+| 3    | Create `opcua_simulator.py` with `OPCUADevice` + `OPCUADeviceManager` | Steps 1-2  | Large            |
+| 4    | Add data generators to `industrial_patterns.py`                       | Nothing    | Medium           |
+| 5    | Wire into `orchestrator.py`                                           | Steps 2-3  | Small            |
+| 6    | Add API endpoints to `main.py`                                        | Step 5     | Small            |
+| 7    | Update `default_config.yml`                                           | Step 2     | Small            |
+| 8    | Write unit tests                                                      | Steps 2-4  | Medium           |
+| 9    | Update frontend types and components                                  | Step 6     | Medium           |
+| 10   | Update Dockerfile and test Docker build                               | Step 7     | Small            |
+| 11   | Run full integration tests                                            | All        | Medium           |
+| 12   | Update documentation                                                  | All        | Small            |
 
 ---
 
 ## 7. Risks and Mitigations
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| `asyncua` library compatibility with Python 3.12 | Blocks entire implementation | Verified: asyncua 1.1.x supports Python 3.12. Pin version in pyproject.toml |
-| Port conflicts with real OPC-UA servers on dev machines | Devices fail to start | Use configurable ports (4840-4842 default), same pattern as Modbus port_start |
-| OPC-UA server startup is slower than Modbus | Longer container startup time | Start OPC-UA servers with same semaphore pattern (max 5 concurrent) |
-| Address space complexity vs flat registers | More code to maintain | Keep node structure simple and consistent across device types |
-| Docker image size increase | Larger pull times | `asyncua` is pure Python, minimal size impact |
+| Risk                                                    | Impact                        | Mitigation                                                                    |
+| ------------------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------- |
+| `asyncua` library compatibility with Python 3.12        | Blocks entire implementation  | Verified: asyncua 1.1.x supports Python 3.12. Pin version in pyproject.toml   |
+| Port conflicts with real OPC-UA servers on dev machines | Devices fail to start         | Use configurable ports (4840-4842 default), same pattern as Modbus port_start |
+| OPC-UA server startup is slower than Modbus             | Longer container startup time | Start OPC-UA servers with same semaphore pattern (max 5 concurrent)           |
+| Address space complexity vs flat registers              | More code to maintain         | Keep node structure simple and consistent across device types                 |
+| Docker image size increase                              | Larger pull times             | `asyncua` is pure Python, minimal size impact                                 |
 
 ---
 
@@ -476,13 +495,13 @@ Execute in this order to maintain a working system at each step:
 
 The implementation is complete when:
 
-- [ ] 3 OPC-UA device types are running in Docker alongside Modbus and MQTT
-- [ ] `GET /status` shows `opcua` in the protocols list
-- [ ] `GET /devices` includes OPC-UA devices with correct status
-- [ ] `GET /devices/{id}/data` returns structured node values for each device type
-- [ ] An external OPC-UA client (e.g., UaExpert, Prosys) can connect and browse nodes
-- [ ] Frontend Dashboard shows OPC-UA protocol and devices
-- [ ] Frontend DataMonitor streams and formats OPC-UA data
-- [ ] All unit tests pass
-- [ ] Docker container starts with all 3 protocols in < 10 seconds
-- [ ] Health check shows 100% for all devices
+- [x] 3 OPC-UA device types are running in Docker alongside Modbus and MQTT
+- [x] `GET /status` shows `opcua` in the protocols list
+- [x] `GET /devices` includes OPC-UA devices with correct status
+- [x] `GET /devices/{id}/data` returns structured node values for each device type
+- [x] An external OPC-UA client (e.g., UaExpert, Prosys) can connect and browse nodes
+- [x] Frontend Dashboard shows OPC-UA protocol and devices
+- [x] Frontend DataMonitor streams and formats OPC-UA data
+- [x] All unit tests pass
+- [x] Docker container starts with all 3 protocols in < 10 seconds
+- [x] Health check shows 100% for all devices

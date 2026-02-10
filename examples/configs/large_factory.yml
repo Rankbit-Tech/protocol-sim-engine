@@ -17,6 +17,7 @@ network:
   port_ranges:
     modbus: [5020, 5100]
     mqtt: [1883, 1883]
+    opcua: [4840, 4860]
     http: [8080, 8099]
 
 industrial_protocols:
@@ -67,3 +68,46 @@ industrial_protocols:
           torque_range: [0, 500]
           power_range: [0, 100]
           fault_codes: [0, 1, 2, 5, 8, 10]
+
+  opcua:
+    enabled: true
+    security_mode: "None"
+    security_policy: "None"
+    application_uri: "urn:large-factory:opcua:server"
+    devices:
+      cnc_machines:
+        count: 3
+        port_start: 4840
+        device_template: "opcua_cnc_machine"
+        locations: ["machining_cell_1", "machining_cell_2", "machining_cell_3"]
+        update_interval: 1.0
+        data_config:
+          spindle_speed_range: [0, 18000]
+          feed_rate_range: [0, 12000]
+          base_spindle_speed: 8000
+          base_feed_rate: 4000
+          tool_wear_rate: 0.015
+
+      plc_controllers:
+        count: 3
+        port_start: 4843
+        device_template: "opcua_plc_controller"
+        locations:
+          ["paint_booth_ctrl", "curing_oven_ctrl", "cooling_system_ctrl"]
+        update_interval: 0.5
+        data_config:
+          process_value_range: [60, 220]
+          setpoint: 180.0
+
+      industrial_robots:
+        count: 4
+        port_start: 4846
+        device_template: "opcua_industrial_robot"
+        locations:
+          ["weld_cell_1", "weld_cell_2", "assembly_robot_1", "assembly_robot_2"]
+        update_interval: 0.5
+        data_config:
+          joint_count: 6
+          max_speed_percent: 80
+          base_cycle_time: 22.0
+          payload_range: [5, 15]
