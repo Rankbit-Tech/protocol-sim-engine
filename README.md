@@ -20,11 +20,12 @@ The easiest way to get started is using the pre-built Docker image from Docker H
 # Pull the latest image
 docker pull developeryashsolanki/protocol-sim-engine:latest
 
-# Run with default configuration (Modbus + MQTT devices)
+# Run with default configuration (Modbus + MQTT + OPC-UA devices)
 docker run -d \
   --name protocol-sim \
   -p 8080:8080 \
   -p 1883:1883 \
+  -p 4840-4850:4840-4850 \
   -p 15000-15002:15000-15002 \
   developeryashsolanki/protocol-sim-engine:latest
 
@@ -37,14 +38,10 @@ open http://localhost:8080/docs
 
 **What you get out of the box:**
 
-- ✅ 3 pre-configured Modbus TCP devices
-- ✅ Temperature sensor on port 15000
-- ✅ Pressure transmitter on port 15001
-- ✅ Motor drive (VFD) on port 15002
-- ✅ 10 MQTT IoT devices (sensors, meters, trackers)
-- ✅ **Embedded MQTT broker** (no external broker needed!)
-- ✅ REST API on port 8080
-- ✅ Interactive API docs at `/docs`
+- ✅ 3 pre-configured Modbus TCP devices (temperature, pressure, motor drive)
+- ✅ 10 MQTT IoT devices (sensors, meters, trackers) with **embedded broker**
+- ✅ OPC-UA devices (CNC machines, PLC controllers, industrial robots)
+- ✅ REST API on port 8080 with interactive docs at `/docs`
 - ✅ Health monitoring at `/health`
 
 ### Run with Custom Configuration
@@ -62,13 +59,14 @@ docker run -d \
 ### Available Docker Tags
 
 - `latest` - Latest stable release
-- `0.3.0` - Current version with React frontend
-- `0.2.0` - Previous stable version
+- `0.4.0` - Current version with OPC-UA support
+- `0.3.0` - React frontend release
+- `0.2.0` - MQTT support release
 - `0.1.0` - Initial release
 
 ```bash
 # Use specific version for production
-docker pull developeryashsolanki/protocol-sim-engine:0.3.0
+docker pull developeryashsolanki/protocol-sim-engine:0.4.0
 ```
 
 ### Build from Source (Optional)
@@ -176,7 +174,7 @@ docker run -d \
   -p 15000-15010:15000-15010 \
   -v /opt/config/factory.yml:/config/factory.yml \
   -v /var/log/protocol-sim:/app/logs \
-  developeryashsolanki/protocol-sim-engine:0.1.0
+  developeryashsolanki/protocol-sim-engine:0.4.0
 
 # Check health
 curl http://localhost:8080/health
@@ -218,14 +216,18 @@ docker run -d \
   - Temperature sensors (0.01°C resolution)
   - Pressure transmitters (0.01 PSI resolution)
   - Motor drives (VFDs with speed, torque, power)
-  - Flow meters, level sensors, valve controllers
 - ✅ **MQTT** - IoT sensor networks with embedded broker
   - Environmental sensors (temperature, humidity, air quality)
   - Smart energy meters (voltage, current, power)
   - Asset trackers (zone tracking, battery level)
   - **Embedded MQTT broker** - No external broker required!
   - Configurable QoS levels (0, 1, 2)
-  - Custom topic hierarchies
+- ✅ **OPC-UA** - Industrial automation with structured address spaces
+  - CNC machining centers (spindle speed, feed rate, tool wear, axis positions)
+  - PLC process controllers (PID control, setpoints, alarms)
+  - Industrial robots (6-axis joints, TCP position/orientation, cycle tracking)
+  - Per-device OPC-UA servers with proper namespace organization
+  - Writable nodes for interactive testing
 - ✅ **Configuration-Driven** - YAML-based device configuration
 - ✅ **REST API** - Full REST API for monitoring and control
 - ✅ **Realistic Data** - Industrial-grade data patterns with noise and correlation
@@ -234,7 +236,6 @@ docker run -d \
 
 ### Coming Soon
 
-- 🔜 OPC-UA - Industrial automation standard
 - 🔜 Ethernet/IP - Allen-Bradley PLCs
 - 🔜 BLE/Bluetooth - Asset tracking and wearables
 - 🔜 CCTV/RTSP - Security camera simulation
@@ -358,6 +359,48 @@ industrial_protocols:
     broker_port: 1883
 ```
 
+### OPC-UA Devices
+
+```yaml
+# Add to your factory.yml
+industrial_protocols:
+  opcua:
+    enabled: true
+    security_mode: "None"
+    application_uri: "urn:my-plant:opcua:server"
+    devices:
+      cnc_machines:
+        count: 2
+        port_start: 4840
+        device_template: "opcua_cnc_machine"
+        update_interval: 1.0
+        data_config:
+          spindle_speed_range: [0, 18000]
+          feed_rate_range: [0, 12000]
+          base_spindle_speed: 8000
+          tool_wear_rate: 0.015
+
+      plc_controllers:
+        count: 1
+        port_start: 4842
+        device_template: "opcua_plc_controller"
+        update_interval: 0.5
+        data_config:
+          process_value_range: [60, 220]
+          setpoint: 180.0
+          kp: 2.0
+          ki: 0.3
+          kd: 0.1
+```
+
+Connect with any OPC-UA client:
+
+```bash
+# Each device runs its own OPC-UA server
+# CNC machine at opc.tcp://localhost:4840/freeopcua/server/
+# PLC controller at opc.tcp://localhost:4842/freeopcua/server/
+```
+
 ### Test Modbus Connectivity
 
 ```python
@@ -392,6 +435,11 @@ Once running, access the API at `http://localhost:8080`:
 - **GET /mqtt/broker** - MQTT broker status (embedded: true/false)
 - **GET /mqtt/topics** - All active MQTT topics
 - **GET /mqtt/devices/{id}/messages** - Recent messages from device
+
+**OPC-UA-specific endpoints:**
+
+- **GET /opcua/endpoints** - All OPC-UA server endpoints
+- **GET /opcua/devices/{id}/nodes** - Node values for a device
 
 Example:
 
@@ -554,6 +602,62 @@ data_config:
   zone_ids: ["zone_a", "zone_b", "warehouse"]
 ```
 
+### OPC-UA Device Templates
+
+#### CNC Machine
+
+```yaml
+device_template: "opcua_cnc_machine"
+update_interval: 1.0
+data_config:
+  spindle_speed_range: [0, 18000]  # RPM
+  feed_rate_range: [0, 12000]      # mm/min
+  base_spindle_speed: 8000
+  base_feed_rate: 4000
+  tool_wear_rate: 0.015
+  workspace_mm: [800, 600, 500]
+  programs: ["EngineBlock_Op10", "HeadGasket_Op10"]
+```
+
+**OPC-UA Nodes:** SpindleSpeed, FeedRate, ToolWearPercent, PartCount, AxisPosition (X/Y/Z), ProgramName, MachineState
+
+**States:** RUNNING, IDLE, SETUP, ERROR (automatic state transitions)
+
+#### PLC Controller
+
+```yaml
+device_template: "opcua_plc_controller"
+update_interval: 0.5
+data_config:
+  process_value_range: [60, 220]  # Process units
+  setpoint: 180.0
+  kp: 2.0    # PID proportional gain
+  ki: 0.3    # PID integral gain
+  kd: 0.1    # PID derivative gain
+  high_alarm: 210
+  low_alarm: 100
+```
+
+**OPC-UA Nodes:** ProcessValue, Setpoint, ControlOutput, Mode, HighAlarm, LowAlarm, IntegralTerm, DerivativeTerm, Error
+
+**Modes:** AUTO, MANUAL, CASCADE (realistic PID control simulation)
+
+#### Industrial Robot
+
+```yaml
+device_template: "opcua_industrial_robot"
+update_interval: 0.5
+data_config:
+  joint_count: 6
+  max_speed_percent: 80
+  base_cycle_time: 22.0
+  payload_range: [5, 15]  # kg
+```
+
+**OPC-UA Nodes:** JointAngle (1-6), TCPPosition (X/Y/Z), TCPOrientation (Rx/Ry/Rz), ProgramState, CycleTime, CycleCount, PayloadKg, SpeedPercent
+
+**States:** RUNNING, PAUSED, STOPPED (state-aware motion simulation)
+
 ## 📁 Project Structure
 
 ```
@@ -562,7 +666,8 @@ universal-simulation-engine/
 │   ├── protocols/               # Protocol implementations
 │   │   └── industrial/
 │   │       ├── modbus/         # Modbus TCP simulator
-│   │       └── mqtt/           # MQTT simulator + embedded broker
+│   │       ├── mqtt/           # MQTT simulator + embedded broker
+│   │       └── opcua/          # OPC-UA simulator (asyncua)
 │   ├── config_parser.py        # Configuration management
 │   ├── orchestrator.py         # Main orchestrator
 │   ├── port_manager.py         # Port allocation
@@ -591,6 +696,7 @@ universal-simulation-engine/
 - [📝 Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - What's been built
 - [🔧 Modbus Protocol Guide](docs/protocols/modbus/README.md) - Detailed Modbus docs
 - [📡 MQTT Protocol Guide](docs/protocols/mqtt/README.md) - MQTT & IoT device docs
+- [🏭 OPC-UA Protocol Guide](docs/protocols/opcua/README.md) - OPC-UA device docs
 - [⚙️ Configuration Examples](examples/configs/README.md) - Ready-to-use configs
 - [🛠️ Tools Guide](tools/README.md) - Utility tools
 
@@ -635,8 +741,8 @@ Built for the industrial IoT community to accelerate development and testing.
 
 ---
 
-**Status**: Production Ready - Modbus TCP ✅ | MQTT ✅ | React Frontend ✅
+**Status**: Production Ready - Modbus TCP ✅ | MQTT ✅ | OPC-UA ✅ | React Frontend ✅
 
-**Version**: 0.3.0
+**Version**: 0.4.0
 
 **Last Updated**: February 2026

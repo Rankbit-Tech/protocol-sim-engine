@@ -289,7 +289,13 @@ src/
 │       ├── modbus/
 │       │   ├── __init__.py
 │       │   └── modbus_simulator.py
-│       └── mqtt/        # New protocols here
+│       ├── mqtt/
+│       │   ├── __init__.py
+│       │   ├── mqtt_simulator.py
+│       │   └── mqtt_broker.py
+│       └── opcua/
+│           ├── __init__.py
+│           └── opcua_simulator.py
 ├── data_patterns/       # Data generation
 ├── utils/              # Utilities
 └── main.py            # Entry point

@@ -2,7 +2,7 @@
 
 **Complete documentation for the Universal Simulation Engine**
 
-Last Updated: February 3, 2026
+Last Updated: February 10, 2026
 
 ---
 
@@ -26,7 +26,10 @@ Last Updated: February 3, 2026
   - Environmental sensors, energy meters, asset trackers
   - **Built-in MQTT broker** (no external setup needed)
   - Configurable QoS, topics, publish intervals
-- [OPC-UA Protocol](protocols/opcua/README.md) - Coming soon
+- [OPC-UA Protocol](protocols/opcua/README.md) - Industrial automation simulation
+  - CNC machines, PLC controllers, industrial robots
+  - Per-device OPC-UA servers with structured address spaces
+  - Writable nodes, realistic state machines
 
 #### Configuration Reference
 
@@ -162,6 +165,12 @@ Last Updated: February 3, 2026
   - **Built-in MQTT broker** (amqtt) - no external setup needed
   - Configurable QoS levels (0, 1, 2), topic hierarchies
   - Gateway pattern for reliable multi-device publishing
+- **OPC-UA Protocol** - Full implementation with asyncua
+  - CNC machining centers (spindle, feed rate, tool wear, axis positions)
+  - PLC process controllers (PID control, setpoints, alarms)
+  - Industrial robots (6-axis joints, TCP position/orientation, cycles)
+  - Per-device OPC-UA servers with structured address spaces
+  - Writable nodes for interactive testing
 - **Configuration System** - YAML-based configuration
 - **REST API** - 15+ endpoints for monitoring/control
 - **React Frontend** - Modern responsive dashboard (React + TypeScript + shadcn/ui)
@@ -169,12 +178,6 @@ Last Updated: February 3, 2026
 - **Port Management** - Automatic allocation and conflict prevention
 - **Docker Support** - Single-image deployment
 - **Testing Framework** - Unit tests, integration tests
-
-### 🚧 In Progress
-
-- OPC-UA Protocol implementation
-- Additional device templates
-- Enhanced documentation
 
 ### 📋 Planned
 
@@ -228,4 +231,4 @@ Last Updated: February 3, 2026
 
 **Happy Simulating! 🚀**
 
-_This documentation is continuously updated. Last update: February 3, 2026_
+_This documentation is continuously updated. Last update: February 10, 2026_

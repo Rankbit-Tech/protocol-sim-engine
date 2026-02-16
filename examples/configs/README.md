@@ -48,6 +48,28 @@ Production-scale simulation with multiple device types.
 - **Ports:** 15000-15050
 - **Update Intervals:** 0.5s - 2.0s
 
+### `full_factory.yml`
+
+Complete multi-protocol automotive assembly plant simulation.
+
+- **Use Case:** Full multi-protocol testing, realistic demos, integration testing
+- **Protocols:** Modbus TCP + MQTT + OPC-UA
+- **Devices:** 24 total
+  - 9 Modbus TCP (3 temp sensors, 2 pressure transmitters, 4 VFDs)
+  - 12 MQTT (4 environmental sensors, 3 energy meters, 5 asset trackers)
+  - 6 OPC-UA (2 CNC machines, 2 PLC controllers, 2 industrial robots)
+- **Ports:** Modbus 15000-15008, MQTT 1883, OPC-UA 4840-4845
+
+```bash
+docker run --rm \
+  -v $(pwd)/full_factory.yml:/config/factory.yml \
+  -p 8080:8080 \
+  -p 1883:1883 \
+  -p 4840-4850:4840-4850 \
+  -p 15000-15010:15000-15010 \
+  developeryashsolanki/protocol-sim-engine:latest
+```
+
 ## 🛠️ Configuration Structure
 
 All configuration files follow this structure:
@@ -63,6 +85,8 @@ simulation:
 network:
   port_ranges:
     modbus: [start, end]
+    opcua: [start, end]
+    mqtt: [port, port]
 
 industrial_protocols:
   modbus_tcp:
@@ -75,6 +99,20 @@ industrial_protocols:
         update_interval: SECONDS
         data_config:
           # Device-specific configuration
+
+  mqtt:
+    enabled: true
+    use_embedded_broker: true
+    broker_port: 1883
+    devices:
+      # MQTT device definitions...
+
+  opcua:
+    enabled: true
+    security_mode: "None"
+    application_uri: "urn:plant:opcua:server"
+    devices:
+      # OPC-UA device definitions...
 ```
 
 ## 📊 Device Templates
@@ -116,6 +154,59 @@ motor_drives:
   data_config:
     speed_range: [1000, 3600] # RPM
     torque_range: [0, 500] # Nm
+```
+
+## 🏭 OPC-UA Device Templates
+
+### CNC Machine
+
+```yaml
+cnc_machines:
+  count: 2
+  port_start: 4840
+  device_template: "opcua_cnc_machine"
+  update_interval: 1.0
+  data_config:
+    spindle_speed_range: [0, 18000]  # RPM
+    feed_rate_range: [0, 12000]      # mm/min
+    base_spindle_speed: 8000
+    base_feed_rate: 4000
+    tool_wear_rate: 0.015
+    workspace_mm: [800, 600, 500]
+    programs: ["Op10", "Op20", "Op30"]
+```
+
+### PLC Controller
+
+```yaml
+plc_controllers:
+  count: 2
+  port_start: 4842
+  device_template: "opcua_plc_controller"
+  update_interval: 0.5
+  data_config:
+    process_value_range: [60, 220]
+    setpoint: 180.0
+    kp: 2.0
+    ki: 0.3
+    kd: 0.1
+    high_alarm: 210
+    low_alarm: 100
+```
+
+### Industrial Robot
+
+```yaml
+industrial_robots:
+  count: 2
+  port_start: 4844
+  device_template: "opcua_industrial_robot"
+  update_interval: 0.5
+  data_config:
+    joint_count: 6
+    max_speed_percent: 80
+    base_cycle_time: 22.0
+    payload_range: [5, 15]
 ```
 
 ## 🧪 Testing Configurations
