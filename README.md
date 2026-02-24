@@ -20,13 +20,14 @@ The easiest way to get started is using the pre-built Docker image from Docker H
 # Pull the latest image
 docker pull developeryashsolanki/protocol-sim-engine:latest
 
-# Run with default configuration (Modbus + MQTT + OPC-UA devices)
+# Run with default configuration (Modbus + MQTT + OPC-UA + EtherNet/IP devices)
 docker run -d \
   --name protocol-sim \
   -p 8080:8080 \
   -p 1883:1883 \
   -p 15000-15002:15000-15002 \
   -p 4840-4850:4840-4850 \
+  -p 44818-44820:44818-44820 \
   developeryashsolanki/protocol-sim-engine:latest
 
 # Access the API
@@ -46,6 +47,8 @@ open http://localhost:8080/docs
 - ✅ **Embedded MQTT broker** (no external broker needed!)
 - ✅ 3 OPC-UA devices (CNC machine, PLC controller, industrial robot)
 - ✅ OPC-UA servers on ports 4840-4842
+- ✅ 3 EtherNet/IP devices (ControlLogix PLC, PowerFlex drive, I/O module)
+- ✅ EtherNet/IP CIP servers on ports 44818-44820
 - ✅ REST API on port 8080
 - ✅ Interactive API docs at `/docs`
 - ✅ Health monitoring at `/health`
@@ -65,14 +68,15 @@ docker run -d \
 ### Available Docker Tags
 
 - `latest` - Latest stable release
-- `0.4.0` - Current version with OPC-UA support
+- `0.5.0` - Current version with EtherNet/IP support
+- `0.4.0` - OPC-UA support
 - `0.3.0` - React frontend migration
 - `0.2.0` - Previous stable version
 - `0.1.0` - Initial release
 
 ```bash
 # Use specific version for production
-docker pull developeryashsolanki/protocol-sim-engine:0.4.0
+docker pull developeryashsolanki/protocol-sim-engine:0.5.0
 ```
 
 ### Build from Source (Optional)
@@ -107,6 +111,7 @@ docker pull developeryashsolanki/protocol-sim-engine:latest
 docker run -d --name protocol-sim \
   -p 8080:8080 -p 15000-15002:15000-15002 \
   -p 1883:1883 -p 4840-4850:4840-4850 \
+  -p 44818-44820:44818-44820 \
   developeryashsolanki/protocol-sim-engine:latest
 
 # View logs
@@ -144,6 +149,7 @@ services:
       - "15000-15010:15000-15010"
       - "1883:1883"
       - "4840-4850:4840-4850"
+      - "44818-44820:44818-44820"
     volumes:
       - ./config.yml:/config/factory.yml
     restart: unless-stopped
@@ -181,9 +187,11 @@ docker run -d \
   --cpus="2" \
   -p 8080:8080 \
   -p 15000-15010:15000-15010 \
+  -p 4840-4850:4840-4850 \
+  -p 44818-44820:44818-44820 \
   -v /opt/config/factory.yml:/config/factory.yml \
   -v /var/log/protocol-sim:/app/logs \
-  developeryashsolanki/protocol-sim-engine:0.4.0
+  developeryashsolanki/protocol-sim-engine:0.5.0
 
 # Check health
 curl http://localhost:8080/health
@@ -201,6 +209,7 @@ docker run -d \
   -p 15000-15002:15000-15002 \
   -p 1883:1883 \
   -p 4840-4850:4840-4850 \
+  -p 44818-44820:44818-44820 \
   developeryashsolanki/protocol-sim-engine:latest
 ```
 
@@ -243,6 +252,12 @@ docker run -d \
   - Industrial robots (joint angles, TCP position, cycle time, payload)
   - Hierarchical node structure (DeviceSet/Identification/Parameters/Status)
   - Compatible with standard OPC-UA clients (UaExpert, Prosys, asyncua)
+- ✅ **EtherNet/IP** - Allen-Bradley CIP protocol simulation over TCP
+  - ControlLogix PLC (ProcessValue, Setpoint, ControlOutput, Mode, alarms, batch count)
+  - PowerFlex 755 drive (frequency, voltage, current, speed, torque, temperature, fault state)
+  - CompactLogix I/O module (16 digital inputs, 16 digital outputs, 8 analog in, 4 analog out)
+  - Full CIP encapsulation: RegisterSession, SendRRData, ReadTag, WriteTag, MultipleServicePacket
+  - Compatible with standard EtherNet/IP clients (pycomm3, Ignition, FactoryTalk)
 - ✅ **Configuration-Driven** - YAML-based device configuration
 - ✅ **REST API** - Full REST API for monitoring and control
 - ✅ **Realistic Data** - Industrial-grade data patterns with noise and correlation
@@ -251,7 +266,6 @@ docker run -d \
 
 ### Coming Soon
 
-- 🔜 Ethernet/IP - Allen-Bradley PLCs
 - 🔜 BLE/Bluetooth - Asset tracking and wearables
 - 🔜 CCTV/RTSP - Security camera simulation
 
@@ -437,6 +451,67 @@ async def main():
 asyncio.run(main())
 ```
 
+### EtherNet/IP Devices (Allen-Bradley CIP)
+
+The simulator runs a real CIP-over-TCP server for each EtherNet/IP device — compatible with any standard EtherNet/IP client.
+
+```yaml
+# Add to your factory.yml
+industrial_protocols:
+  ethernet_ip:
+    enabled: true
+    devices:
+      controllogix_plcs:
+        count: 1
+        port_start: 44818
+        device_template: "eip_controllogix_plc"
+        update_interval: 1.0
+        data_config:
+          process_value_range: [0, 100]
+          setpoint: 50.0
+          kp: 1.0
+          ki: 0.1
+          kd: 0.05
+
+      powerflex_drives:
+        count: 1
+        port_start: 44819
+        device_template: "eip_powerflex_drive"
+        update_interval: 0.5
+        data_config:
+          frequency_range: [0, 60]
+          base_frequency: 50.0
+          max_current: 50.0
+
+      io_modules:
+        count: 1
+        port_start: 44820
+        device_template: "eip_io_module"
+        update_interval: 0.5
+        data_config:
+          slot_number: 1
+```
+
+Connect with a standard EtherNet/IP client (e.g. [pycomm3](https://github.com/ottowayi/pycomm3)):
+
+```python
+from pycomm3 import CIPDriver
+
+with CIPDriver("localhost:44818") as plc:
+    tags = plc.read("ProcessValue", "Setpoint", "Mode")
+    print(f"PV: {tags[0].value}, SP: {tags[1].value}, Mode: {tags[2].value}")
+```
+
+Or use the REST API:
+
+```bash
+# List all EtherNet/IP device endpoints
+curl http://localhost:8080/ethernetip/connections
+
+# Read all tags from a device
+curl http://localhost:8080/ethernetip/devices/eip_controllogix_plcs_000/tags
+```
+
 ### Test Modbus Connectivity
 
 ```python
@@ -476,6 +551,11 @@ Once running, access the API at `http://localhost:8080`:
 
 - **GET /opcua/servers** - List all OPC-UA server endpoints and status
 - **GET /opcua/devices/{id}/nodes** - Current node values for a device
+
+**EtherNet/IP-specific endpoints:**
+
+- **GET /ethernetip/connections** - List all CIP server endpoints and session counts
+- **GET /ethernetip/devices/{id}/tags** - Current tag values for a device
 
 Example:
 
@@ -640,6 +720,86 @@ data_config:
   zone_ids: ["zone_a", "zone_b", "warehouse"]
 ```
 
+### EtherNet/IP Device Templates
+
+#### ControlLogix PLC
+
+```yaml
+device_template: "eip_controllogix_plc"
+port_start: 44818
+update_interval: 1.0
+data_config:
+  process_value_range: [0, 100]
+  setpoint: 50.0
+  kp: 1.0
+  ki: 0.1
+  kd: 0.05
+  high_alarm: 90
+  low_alarm: 10
+  cycle_time_ms: 1000
+```
+
+**CIP Tags:**
+
+- `ProcessValue` (REAL) - Current process variable
+- `Setpoint` (REAL) - PID setpoint
+- `ControlOutput` (REAL, 0-100%) - PID output
+- `Mode` (INT) - 0=MANUAL, 1=AUTO, 2=CASCADE
+- `HighAlarm` / `LowAlarm` (BOOL)
+- `Error` (REAL) - SP - PV
+- `CycleTime` (DINT, ms)
+- `BatchCount` (DINT)
+- `RunStatus` (BOOL)
+
+#### PowerFlex 755 Drive
+
+```yaml
+device_template: "eip_powerflex_drive"
+port_start: 44819
+update_interval: 0.5
+data_config:
+  frequency_range: [0, 60]
+  base_frequency: 50.0
+  max_current: 50.0
+  v_per_hz: 7.6
+  max_torque: 500
+  accel_time: 5.0
+```
+
+**CIP Tags:**
+
+- `OutputFrequency` (REAL, Hz)
+- `OutputVoltage` (REAL, V)
+- `OutputCurrent` (REAL, A)
+- `MotorSpeed` (DINT, RPM)
+- `Torque` (REAL, Nm)
+- `DCBusVoltage` (REAL, V)
+- `DriveTemp` (REAL, °C)
+- `FaultCode` (INT) - 0=none, 1/2/3=various faults
+- `RunStatus` (INT) - 0=Stopped, 1=Forward, 2=Reverse, 3=Fault
+- `AccelTime` (REAL, s)
+
+#### CompactLogix I/O Module
+
+```yaml
+device_template: "eip_io_module"
+port_start: 44820
+update_interval: 0.5
+data_config:
+  slot_number: 1
+  ao_0_setpoint: 50.0
+  ao_1_setpoint: 25.0
+```
+
+**CIP Tags:**
+
+- `DI_Word` (DINT[4]) - 4 × 32-bit digital input words (128 DI bits)
+- `DO_Word` (DINT[4]) - 4 × 32-bit digital output words (128 DO bits)
+- `AI_Channel` (REAL[8]) - 8 analog input channels (0-100%)
+- `AO_Channel` (REAL[4]) - 4 analog output channels (0-100%)
+- `ModuleStatus` (INT) - 0=OK, 1=WARN, 2=FAULT
+- `SlotNumber` (DINT)
+
 ### OPC-UA Device Templates
 
 #### CNC Machine Monitor
@@ -714,7 +874,8 @@ universal-simulation-engine/
 │   │   └── industrial/
 │   │       ├── modbus/         # Modbus TCP simulator
 │   │       ├── mqtt/           # MQTT simulator + embedded broker
-│   │       └── opcua/          # OPC-UA simulator + servers
+│   │       ├── opcua/          # OPC-UA simulator + servers
+│   │       └── ethernetip/     # EtherNet/IP CIP simulator
 │   ├── config_parser.py        # Configuration management
 │   ├── orchestrator.py         # Main orchestrator
 │   ├── port_manager.py         # Port allocation
@@ -744,6 +905,7 @@ universal-simulation-engine/
 - [🔧 Modbus Protocol Guide](docs/protocols/modbus/README.md) - Detailed Modbus docs
 - [📡 MQTT Protocol Guide](docs/protocols/mqtt/README.md) - MQTT & IoT device docs
 - [🏭 OPC-UA Protocol Guide](docs/protocols/opcua/README.md) - OPC-UA device & server docs
+- [🔌 EtherNet/IP Protocol Guide](docs/protocols/ethernetip/README.md) - CIP/EtherNet/IP docs
 - [⚙️ Configuration Examples](examples/configs/README.md) - Ready-to-use configs
 - [🛠️ Tools Guide](tools/README.md) - Utility tools
 
@@ -788,8 +950,8 @@ Built for the industrial IoT community to accelerate development and testing.
 
 ---
 
-**Status**: Production Ready - Modbus TCP ✅ | MQTT ✅ | OPC-UA ✅ | React Frontend ✅
+**Status**: Production Ready - Modbus TCP ✅ | MQTT ✅ | OPC-UA ✅ | EtherNet/IP ✅ | React Frontend ✅
 
-**Version**: 0.4.0
+**Version**: 0.5.0
 
 **Last Updated**: February 2026
