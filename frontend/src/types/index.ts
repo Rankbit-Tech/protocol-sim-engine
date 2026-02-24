@@ -22,6 +22,10 @@ export interface Device {
   endpoint_url?: string;
   security_mode?: string;
   node_count?: number;
+  // EtherNet/IP specific
+  tag_count?: number;
+  session_count?: number;
+  endpoint?: string;
 }
 
 export interface DeviceData {
@@ -113,6 +117,8 @@ export interface DeviceData {
     device_health?: string;
     error_code?: number;
   };
+  // EtherNet/IP tag-based data
+  tags?: Record<string, { type: string; value: unknown; count: number }>;
 }
 
 export interface SimulationStatus {

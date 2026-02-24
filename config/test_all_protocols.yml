@@ -1,16 +1,16 @@
-# Default Configuration for Universal Simulation Engine
-# This is the default configuration used when no custom config is provided
+# Test Configuration - All Protocols
+# Covers Modbus TCP, MQTT, OPC-UA, and EtherNet/IP with minimal devices for validation
 
 facility:
-  name: "Default Industrial Facility"
-  description: "Example industrial facility simulation"
-  location: "Virtual Factory Floor 1"
+  name: "Protocol Test Facility"
+  description: "End-to-end test config for all implemented protocols"
+  location: "Virtual Test Floor"
   shift_schedule: "24x7"
 
 simulation:
   time_acceleration: 1.0
-  data_retention: "24h"
-  fault_injection_rate: 0.02
+  data_retention: "1h"
+  fault_injection_rate: 0.0
 
 network:
   base_ip: "192.168.100.0/24"
@@ -22,6 +22,8 @@ network:
     ethernet_ip: [44818, 44918]
 
 industrial_protocols:
+
+  # ── Modbus TCP ──────────────────────────────────────────────────
   modbus_tcp:
     enabled: true
     devices:
@@ -29,7 +31,7 @@ industrial_protocols:
         count: 1
         port_start: 15000
         device_template: "industrial_temperature_sensor"
-        locations: ["line_1"]
+        locations: ["test_line_1"]
         update_interval: 2.0
         data_config:
           temperature_range: [18, 45]
@@ -40,7 +42,7 @@ industrial_protocols:
         count: 1
         port_start: 15001
         device_template: "hydraulic_pressure_sensor"
-        locations: ["hydraulic_press_1"]
+        locations: ["test_press_1"]
         update_interval: 1.0
         data_config:
           pressure_range: [0, 300]
@@ -53,37 +55,35 @@ industrial_protocols:
         count: 1
         port_start: 15002
         device_template: "variable_frequency_drive"
-        locations: ["conveyor_1"]
+        locations: ["test_conveyor_1"]
         update_interval: 0.5
         data_config:
           speed_range: [0, 3600]
           torque_range: [0, 500]
           power_range: [0, 100]
 
-  # MQTT Protocol Configuration
+  # ── MQTT ────────────────────────────────────────────────────────
   mqtt:
     enabled: true
-    use_embedded_broker: true  # Set to false to use external broker (e.g., Mosquitto)
+    use_embedded_broker: true
     broker_host: "localhost"
     broker_port: 1883
-    client_id_prefix: "sim_"
+    client_id_prefix: "test_sim_"
     devices:
-      # IoT Environmental Sensors
       environmental_sensors:
-        count: 3
+        count: 2
         device_template: "iot_environmental_sensor"
-        base_topic: "factory/floor1/environment"
+        base_topic: "test/floor1/environment"
         publish_interval: 5.0
         qos: 1
         data_config:
           temperature_range: [18, 35]
           humidity_range: [30, 80]
 
-      # Smart Energy Meters
       energy_meters:
-        count: 2
+        count: 1
         device_template: "smart_meter"
-        base_topic: "factory/energy"
+        base_topic: "test/energy"
         publish_interval: 10.0
         qos: 1
         data_config:
@@ -91,30 +91,28 @@ industrial_protocols:
           current_range: [0, 100]
           power_factor_range: [0.85, 0.99]
 
-      # Asset Trackers
       asset_trackers:
-        count: 5
+        count: 2
         device_template: "asset_tracker"
-        base_topic: "factory/assets"
-        publish_interval: 30.0
+        base_topic: "test/assets"
+        publish_interval: 15.0
         qos: 0
         data_config:
-          zone_ids: ["zone_a", "zone_b", "zone_c", "warehouse"]
+          zone_ids: ["zone_a", "zone_b", "zone_c"]
           battery_drain_rate: 0.001
 
-  # OPC-UA Protocol Configuration
+  # ── OPC-UA ──────────────────────────────────────────────────────
   opcua:
     enabled: true
     security_mode: "None"
     security_policy: "None"
-    application_uri: "urn:protocol-sim-engine:opcua:server"
+    application_uri: "urn:protocol-sim-engine:test:opcua:server"
     devices:
-      # CNC Machine Monitors
       cnc_machines:
         count: 1
         port_start: 4840
         device_template: "opcua_cnc_machine"
-        locations: ["machining_center_1"]
+        locations: ["test_machining_1"]
         update_interval: 1.0
         data_config:
           spindle_speed_range: [0, 24000]
@@ -123,14 +121,13 @@ industrial_protocols:
           base_feed_rate: 5000
           tool_wear_rate: 0.01
           workspace_mm: [500, 400, 300]
-          programs: ["G-Code_001", "G-Code_002", "G-Code_003"]
+          programs: ["G-Code_001", "G-Code_002"]
 
-      # PLC Process Controllers
       plc_controllers:
         count: 1
         port_start: 4841
         device_template: "opcua_plc_controller"
-        locations: ["process_line_1"]
+        locations: ["test_process_1"]
         update_interval: 0.5
         data_config:
           process_value_range: [0, 100]
@@ -141,12 +138,11 @@ industrial_protocols:
           high_alarm: 90
           low_alarm: 10
 
-      # Industrial Robots
       industrial_robots:
         count: 1
         port_start: 4842
         device_template: "opcua_industrial_robot"
-        locations: ["assembly_cell_1"]
+        locations: ["test_assembly_1"]
         update_interval: 0.5
         data_config:
           joint_count: 6
@@ -154,16 +150,15 @@ industrial_protocols:
           base_cycle_time: 15.0
           payload_range: [0, 20]
 
-  # EtherNet/IP Protocol Configuration (Allen-Bradley / Rockwell)
+  # ── EtherNet/IP ─────────────────────────────────────────────────
   ethernet_ip:
     enabled: true
     devices:
-      # Allen-Bradley ControlLogix PLC
       controllogix_plcs:
         count: 1
         port_start: 44818
         device_template: "eip_controllogix_plc"
-        locations: ["process_cell_1"]
+        locations: ["test_process_cell_1"]
         update_interval: 1.0
         data_config:
           process_value_range: [0, 100]
@@ -175,12 +170,11 @@ industrial_protocols:
           low_alarm: 10
           cycle_time_ms: 1000
 
-      # Allen-Bradley PowerFlex 755 VFD Drive
       powerflex_drives:
         count: 1
         port_start: 44819
         device_template: "eip_powerflex_drive"
-        locations: ["conveyor_drive_1"]
+        locations: ["test_conveyor_drive_1"]
         update_interval: 0.5
         data_config:
           frequency_range: [0, 60]
@@ -190,12 +184,11 @@ industrial_protocols:
           max_torque: 500
           accel_time: 5.0
 
-      # CompactLogix I/O Module
       io_modules:
         count: 1
         port_start: 44820
         device_template: "eip_io_module"
-        locations: ["io_rack_1"]
+        locations: ["test_io_rack_1"]
         update_interval: 0.5
         data_config:
           slot_number: 1

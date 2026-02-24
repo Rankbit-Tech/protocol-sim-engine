@@ -68,7 +68,34 @@ function formatDeviceData(data: DeviceData): string {
       return `${n.program_state} · Cycle: ${n.cycle_time_s}s · Payload: ${n.payload_kg}kg · Speed: ${n.speed_percent}%`;
     }
   }
-  return JSON.stringify(data.nodes || data.data || data.registers || {});
+  if (data.tags) {
+    const t = data.tags;
+    // ControlLogix PLC
+    if (t.ProcessValue !== undefined) {
+      const modeMap: Record<number, string> = { 0: 'MANUAL', 1: 'AUTO', 2: 'CASCADE' };
+      const mode = modeMap[t.Mode?.value as number] ?? t.Mode?.value;
+      const alarms = [];
+      if (t.HighAlarm?.value) alarms.push('HIGH');
+      if (t.LowAlarm?.value) alarms.push('LOW');
+      return `PV: ${t.ProcessValue.value} · SP: ${t.Setpoint?.value} · Out: ${t.ControlOutput?.value}% · Mode: ${mode}${alarms.length ? ` · Alarm: ${alarms.join(', ')}` : ''}`;
+    }
+    // PowerFlex Drive
+    if (t.OutputFrequency !== undefined) {
+      const statusMap: Record<number, string> = { 0: 'STOPPED', 1: 'FORWARD', 2: 'REVERSE', 3: 'FAULT' };
+      const status = statusMap[t.RunStatus?.value as number] ?? t.RunStatus?.value;
+      return `${t.OutputFrequency.value} Hz · ${t.MotorSpeed?.value} RPM · ${t.OutputCurrent?.value}A · ${t.DriveTemp?.value}°C · ${status}${t.FaultCode?.value ? ` · Fault: ${t.FaultCode.value}` : ''}`;
+    }
+    // I/O Module
+    if (t.ModuleStatus !== undefined) {
+      const statusText = t.ModuleStatus.value === 0 ? 'OK' : t.ModuleStatus.value === 1 ? 'WARN' : 'FAULT';
+      const aiChannels = (t.AI_Channel?.value as number[]) ?? [];
+      const avgAI = aiChannels.length
+        ? (aiChannels.reduce((a: number, b: number) => a + b, 0) / aiChannels.length).toFixed(1)
+        : 'N/A';
+      return `Slot: ${t.SlotNumber?.value} · Status: ${statusText} · Avg AI: ${avgAI}%`;
+    }
+  }
+  return JSON.stringify(data.tags || data.nodes || data.data || data.registers || {});
 }
 
 function formatDeviceType(type: string): string {

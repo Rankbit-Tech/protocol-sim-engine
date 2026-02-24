@@ -12,7 +12,7 @@ from typing import Optional
 
 import structlog
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -453,6 +453,46 @@ async def get_opcua_device_nodes(device_id: str):
         return {"error": f"No data available yet for {device_id}"}
 
     return node_data
+
+
+# EtherNet/IP specific endpoints
+
+@app.get("/ethernetip/connections")
+async def get_ethernetip_connections():
+    """List all EtherNet/IP device CIP/TCP endpoints."""
+    if not simulator.orchestrator:
+        return {"error": "Simulator not initialized"}
+
+    manager = simulator.orchestrator.device_managers.get("ethernet_ip")
+    if not manager:
+        return {"error": "EtherNet/IP not enabled", "connections": []}
+
+    connections = manager.get_all_device_endpoints()
+    return {
+        "connection_count": len(connections),
+        "connections": connections,
+    }
+
+
+@app.get("/ethernetip/devices/{device_id}/tags")
+async def get_ethernetip_device_tags(device_id: str):
+    """Get current CIP tag values for a specific EtherNet/IP device."""
+    if not simulator.orchestrator:
+        raise HTTPException(status_code=503, detail="Simulator not initialized")
+
+    manager = simulator.orchestrator.device_managers.get("ethernet_ip")
+    if not manager:
+        raise HTTPException(status_code=404, detail="EtherNet/IP not enabled")
+
+    device = manager.devices.get(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Device {device_id} not found")
+
+    data = device.get_tag_data()
+    if data is None:
+        raise HTTPException(status_code=503, detail="Device not running or no data yet")
+
+    return data
 
 
 async def main():
