@@ -144,7 +144,7 @@ class TestMQTTDeviceCreation:
 
         # Add messages
         for i in range(150):  # More than max_history (100)
-            device._add_to_history({"index": i, "value": f"message_{i}"})
+            device.record_publish({"index": i, "value": f"message_{i}"})
 
         # Should only keep last 100
         assert len(device.message_history) == 100
@@ -164,9 +164,9 @@ class TestMQTTDeviceCreation:
         assert device.get_last_message() is None
 
         # Add messages
-        device._add_to_history({"msg": "first"})
-        device._add_to_history({"msg": "second"})
-        device._add_to_history({"msg": "third"})
+        device.record_publish({"msg": "first"})
+        device.record_publish({"msg": "second"})
+        device.record_publish({"msg": "third"})
 
         last_msg = device.get_last_message()
         assert last_msg["msg"] == "third"
@@ -182,7 +182,7 @@ class TestMQTTDeviceCreation:
 
         # Add messages
         for i in range(20):
-            device._add_to_history({"index": i})
+            device.record_publish({"index": i})
 
         # Get last 5
         history = device.get_message_history(limit=5)
@@ -202,9 +202,8 @@ class TestMQTTDeviceLifecycle:
             publish_interval=0.5
         )
 
-    @pytest.mark.asyncio
-    async def test_device_start_without_broker(self):
-        """Test device start behavior when broker is not available."""
+    def test_device_start_without_broker(self):
+        """Test device start behavior sets running state correctly."""
         device = MQTTDevice(
             device_id="test_lifecycle",
             device_config=self.device_config,
@@ -212,21 +211,18 @@ class TestMQTTDeviceLifecycle:
             broker_port=1883
         )
 
-        # Start the device - it should return True and set running to True
-        # even without a broker (the publish loop will handle connection errors)
-        start_result = await device.start()
-        assert start_result is True
+        # start() is synchronous — sets running flag and health status
+        device.start()
         assert device.running is True
         assert device.health_status["status"] == "running"
 
         # Stop the device
-        await device.stop()
+        device.stop()
         assert device.running is False
         assert device.health_status["status"] == "stopped"
 
-    @pytest.mark.asyncio
-    async def test_device_stop_cancels_task(self):
-        """Test that stopping device cancels the publish task."""
+    def test_device_stop_resets_running_flag(self):
+        """Test that stopping device resets the running flag."""
         device = MQTTDevice(
             device_id="test_task_cancel",
             device_config=self.device_config,
@@ -234,15 +230,12 @@ class TestMQTTDeviceLifecycle:
             broker_port=1883
         )
 
-        await device.start()
-        assert device.publish_task is not None
-        assert not device.publish_task.done()
+        device.start()
+        assert device.running is True
 
-        await device.stop()
+        device.stop()
         assert device.running is False
-        # Task should be cancelled
-        await asyncio.sleep(0.1)
-        assert device.publish_task.done() or device.publish_task.cancelled()
+        assert device.health_status["status"] == "stopped"
 
 
 class TestMQTTDeviceManager:
