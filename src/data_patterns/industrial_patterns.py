@@ -454,6 +454,18 @@ class IndustrialDataGenerator:
             robot_config = self.pattern_config.get("robot", self.pattern_config)
             data.update(self.generate_robot_data(robot_config))
 
+        elif device_type == "controllogix_plc":
+            eip_plc_config = self.pattern_config.get("eip_plc", self.pattern_config)
+            data.update(self.generate_controllogix_plc_data(eip_plc_config))
+
+        elif device_type == "powerflex_drive":
+            eip_drive_config = self.pattern_config.get("eip_drive", self.pattern_config)
+            data.update(self.generate_powerflex_drive_data(eip_drive_config))
+
+        elif device_type == "io_module":
+            eip_io_config = self.pattern_config.get("eip_io", self.pattern_config)
+            data.update(self.generate_io_module_data(eip_io_config))
+
         return data
 
     def generate_air_quality(self, config: Dict[str, Any]) -> Dict[str, float]:
@@ -949,4 +961,232 @@ class IndustrialDataGenerator:
             "cycle_count": int(self.last_values["cycle_count"]),
             "payload_kg": round(self.last_values["payload"], 1),
             "speed_percent": round(speed, 1)
+        }
+
+    def generate_controllogix_plc_data(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate Allen-Bradley ControlLogix PLC tag data.
+
+        Delegates PID simulation to generate_plc_controller_data(), then
+        adds EtherNet/IP-specific fields: mode as integer, cycle_time_ms,
+        batch_count, and run_status.
+
+        Args:
+            config: PLC configuration parameters
+
+        Returns:
+            Dictionary with ControlLogix tag values
+        """
+        base = self.generate_plc_controller_data(config)
+
+        # Mode as INT: AUTO=1, MANUAL=0, CASCADE=2
+        mode_str = base.get("mode", "AUTO")
+        mode_map = {"MANUAL": 0, "AUTO": 1, "CASCADE": 2}
+        mode_int = mode_map.get(mode_str, 1)
+
+        # Cycle time in ms with ±5% noise, minimum 100ms
+        base_cycle_ms = config.get("cycle_time_ms", 1000)
+        cycle_noise = self.random_state.uniform(-0.05, 0.05) * base_cycle_ms
+        cycle_time_ms = max(100, int(base_cycle_ms + cycle_noise))
+
+        # Batch count: increments ~5% chance when |error| < 2 and AUTO/CASCADE
+        if "clx_batch_count" not in self.last_values:
+            self.last_values["clx_batch_count"] = 0
+        error_val = abs(base.get("error", 10.0))
+        if error_val < 2.0 and mode_str in ("AUTO", "CASCADE"):
+            if self.random_state.random() < 0.05:
+                self.last_values["clx_batch_count"] += 1
+
+        run_status = (mode_str != "MANUAL")
+
+        return {
+            "process_value": base["process_value"],
+            "setpoint": base["setpoint"],
+            "control_output": base["control_output"],
+            "mode": mode_int,
+            "high_alarm": base["high_alarm"],
+            "low_alarm": base["low_alarm"],
+            "error": base["error"],
+            "cycle_time_ms": cycle_time_ms,
+            "batch_count": int(self.last_values["clx_batch_count"]),
+            "run_status": run_status,
+        }
+
+    def generate_powerflex_drive_data(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate Allen-Bradley PowerFlex 755 VFD drive data.
+
+        Implements a 4-state machine: Stopped(0) → Forward(1) → Reverse(2) → Fault(3).
+        Physics-based simulation of frequency, voltage, current, torque, temperature.
+
+        Args:
+            config: Drive configuration parameters
+
+        Returns:
+            Dictionary with PowerFlex tag values
+        """
+        freq_range = config.get("frequency_range", [0, 60])
+        base_freq = config.get("base_frequency", 50.0)
+        max_current = config.get("max_current", 50.0)
+        v_per_hz = config.get("v_per_hz", 7.6)
+        max_torque = config.get("max_torque", 500.0)
+        accel_time = config.get("accel_time", 5.0)
+
+        # --- state machine initialisation ---
+        if "pf_state" not in self.last_values:
+            self.last_values["pf_state"] = 0         # Stopped
+            self.last_values["pf_fault_ticks"] = 0
+            self.last_values["pf_fault_code"] = 0
+            self.last_values["pf_freq"] = 0.0
+            self.last_values["pf_temp"] = 25.0
+
+        state = self.last_values["pf_state"]
+        roll = self.random_state.random()
+
+        # --- state transitions ---
+        if state == 0:  # Stopped
+            if roll < 0.10:
+                state = 1  # → Forward
+        elif state == 1:  # Forward
+            if roll < 0.03:
+                state = 0  # → Stopped
+            elif roll < 0.04:
+                state = 2  # → Reverse
+            elif roll < 0.045:
+                state = 3  # → Fault
+                self.last_values["pf_fault_ticks"] = 0
+                self.last_values["pf_fault_code"] = int(self.random_state.choice([1, 2, 3]))
+        elif state == 2:  # Reverse
+            if roll < 0.03:
+                state = 0  # → Stopped
+            elif roll < 0.035:
+                state = 3  # → Fault
+                self.last_values["pf_fault_ticks"] = 0
+                self.last_values["pf_fault_code"] = int(self.random_state.choice([1, 2, 3]))
+        elif state == 3:  # Fault
+            self.last_values["pf_fault_ticks"] += 1
+            if self.last_values["pf_fault_ticks"] >= 10 and roll < 0.30:
+                state = 0  # → Stopped after ≥10 ticks in fault
+                self.last_values["pf_fault_code"] = 0
+
+        self.last_values["pf_state"] = state
+
+        # --- physics ---
+        running = state in (1, 2)
+        target_freq = (base_freq + self.random_state.uniform(-2, 2)) if running else 0.0
+        target_freq = max(freq_range[0], min(freq_range[1], target_freq))
+
+        # Ramp frequency toward target
+        current_freq = self.last_values["pf_freq"]
+        ramp_step = (freq_range[1] / max(accel_time, 0.1)) * 0.5
+        if current_freq < target_freq:
+            current_freq = min(target_freq, current_freq + ramp_step)
+        else:
+            current_freq = max(target_freq, current_freq - ramp_step * 2)
+        self.last_values["pf_freq"] = current_freq
+
+        load_factor = current_freq / max(freq_range[1], 1.0)
+
+        output_freq = round(current_freq, 2)
+        output_voltage = round(max(0.0, current_freq * v_per_hz + self.random_state.normal(0, 2)), 1)
+        output_current = round(max(0.0, max_current * load_factor * 0.7 + self.random_state.normal(0, 2)), 2)
+        motor_speed_rpm = int(current_freq * 30)  # 2-pole motor RPM
+        power_kw = output_voltage * output_current / 1000.0
+        torque = round(min(max_torque, (power_kw * 1000 / (2 * 3.14159 * max(current_freq, 0.1))) if current_freq > 0 else 0.0), 2)
+        dc_bus_voltage = round(650.0 + self.random_state.normal(0, 10), 1)
+
+        # Drive temperature: exponential approach to 25 + load_factor*40 °C
+        target_temp = 25.0 + load_factor * 40.0
+        current_temp = self.last_values["pf_temp"]
+        current_temp += (target_temp - current_temp) * 0.05
+        self.last_values["pf_temp"] = current_temp
+        drive_temp = round(current_temp + self.random_state.normal(0, 0.5), 1)
+
+        fault_code = self.last_values["pf_fault_code"] if state == 3 else 0
+        run_status = state  # 0=Stopped, 1=Forward, 2=Reverse, 3=Fault
+
+        return {
+            "output_frequency": output_freq,
+            "output_voltage": output_voltage,
+            "output_current": output_current,
+            "motor_speed_rpm": motor_speed_rpm,
+            "torque": torque,
+            "dc_bus_voltage": dc_bus_voltage,
+            "drive_temp": drive_temp,
+            "fault_code": fault_code,
+            "run_status": run_status,
+            "accel_time": round(accel_time, 1),
+        }
+
+    def generate_io_module_data(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate CompactLogix I/O module data.
+
+        Simulates 4×32-bit digital input words (DI_Word), 4×32-bit digital output
+        words (DO_Word), 8 analog input channels (AI_Channel, 0–100%), and
+        4 analog output channels (AO_Channel) with stable setpoints.
+
+        Args:
+            config: I/O module configuration parameters
+
+        Returns:
+            Dictionary with I/O module tag values
+        """
+        slot_number = config.get("slot_number", 1)
+
+        # --- DI Words: independent bit-flip per bit per tick at 5% ---
+        if "io_di_words" not in self.last_values:
+            self.last_values["io_di_words"] = [0, 0, 0, 0]
+        di_words = list(self.last_values["io_di_words"])
+        for w in range(4):
+            for bit in range(32):
+                if self.random_state.random() < 0.05:
+                    di_words[w] ^= (1 << bit)
+        self.last_values["io_di_words"] = di_words
+
+        # --- DO Words: mirrors DI with 30% probability lag per word ---
+        if "io_do_words" not in self.last_values:
+            self.last_values["io_do_words"] = [0, 0, 0, 0]
+        do_words = list(self.last_values["io_do_words"])
+        for w in range(4):
+            if self.random_state.random() < 0.30:
+                do_words[w] = di_words[w]
+        self.last_values["io_do_words"] = do_words
+
+        # --- AI Channels: 8 independent slow random walks ±0.5%/tick ---
+        if "io_ai_channels" not in self.last_values:
+            self.last_values["io_ai_channels"] = [
+                self.random_state.uniform(20, 80) for _ in range(8)
+            ]
+        ai_channels = list(self.last_values["io_ai_channels"])
+        for i in range(8):
+            delta = self.random_state.uniform(-0.5, 0.5)
+            ai_channels[i] = max(0.0, min(100.0, ai_channels[i] + delta))
+        self.last_values["io_ai_channels"] = ai_channels
+
+        # --- AO Channels: stable setpoints from config ± 0.1% noise ---
+        ao_setpoints = [
+            config.get(f"ao_{i}_setpoint", 50.0) for i in range(4)
+        ]
+        ao_channels = [
+            round(max(0.0, min(100.0, sp + self.random_state.normal(0, 0.1))), 3)
+            for sp in ao_setpoints
+        ]
+
+        # --- Module status: 0=OK (99%), 1=Warning (0.9%), 2=Fault (0.1%) ---
+        roll = self.random_state.random()
+        if roll < 0.001:
+            module_status = 2
+        elif roll < 0.010:
+            module_status = 1
+        else:
+            module_status = 0
+
+        return {
+            "di_words": [int(w) for w in di_words],
+            "do_words": [int(w) for w in do_words],
+            "ai_channels": [round(v, 2) for v in ai_channels],
+            "ao_channels": ao_channels,
+            "module_status": module_status,
+            "slot_number": slot_number,
         }

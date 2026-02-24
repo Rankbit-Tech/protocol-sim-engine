@@ -2,21 +2,22 @@
 
 **Complete overview of what has been built and what's ready to use**
 
-Version: 0.4.0
-Status: Production Ready (Modbus TCP + MQTT + OPC-UA)
-Last Updated: February 10, 2026
+Version: 0.5.0
+Status: Production Ready (Modbus TCP + MQTT + OPC-UA + EtherNet/IP)
+Last Updated: February 24, 2026
 
 ---
 
 ## 🎯 Executive Summary
 
-The Universal Simulation Engine is a **production-ready industrial protocol simulator** that allows developers to test industrial IoT applications without physical hardware. Modbus TCP, MQTT, and OPC-UA protocols are complete and fully functional with realistic data generation, comprehensive API, and web-based monitoring.
+The Universal Simulation Engine is a **production-ready industrial protocol simulator** that allows developers to test industrial IoT applications without physical hardware. Modbus TCP, MQTT, OPC-UA, and EtherNet/IP protocols are complete and fully functional with realistic data generation, comprehensive API, and web-based monitoring.
 
 ### What You Can Do Right Now
 
 ✅ Simulate 1-1000+ Modbus TCP devices
 ✅ Simulate MQTT IoT sensors with **built-in broker**
 ✅ Simulate OPC-UA industrial equipment (CNC, PLC, Robot)
+✅ Simulate EtherNet/IP Allen-Bradley devices (ControlLogix PLC, PowerFlex drive, I/O module)
 ✅ Generate realistic industrial data patterns
 ✅ Monitor devices via REST API
 ✅ View live data in web dashboard
@@ -255,7 +256,7 @@ industrial_protocols:
 
 ---
 
-### 3b. **OPC-UA Protocol** ✅ Complete
+### 3b. **OPC-UA Protocol** ✅ Production Ready
 
 #### OPC-UA Simulator (`src/protocols/industrial/opcua/opcua_simulator.py`)
 
@@ -338,6 +339,80 @@ industrial_protocols:
 
 - `GET /opcua/servers` - List all OPC-UA server endpoints with status
 - `GET /opcua/devices/{id}/nodes` - Read current node values for a device
+
+---
+
+### 3c. **EtherNet/IP Protocol** ✅ Production Ready (v0.5.0)
+
+#### EtherNet/IP Simulator (`src/protocols/industrial/ethernetip/`)
+
+**Architecture:**
+
+- `cip_constants.py` — CIP command/service/type codes and encapsulation constants
+- `cip_protocol.py` — Pure encode/decode functions (no I/O, no side effects)
+- `cip_server.py` — Asyncio TCP server implementing the full CIP over TCP transport
+- `ethernetip_simulator.py` — `EtherNetIPDevice` + `EtherNetIPDeviceManager`
+
+**CIPServer Class:**
+
+- Accepts multiple simultaneous client connections per device (asyncio TCP)
+- Session registry: `RegisterSession` (0x0065) / `UnregisterSession` (0x0066)
+- `SendRRData` (0x006F) dispatcher with CIP service routing
+- Services supported: `ReadTag` (0x4C), `WriteTag` (0x4D), `MultipleServicePacket` (0x0A)
+- EPATH symbolic segment parsing for tag names
+- Session validation — invalid session handle returns CIP error
+
+**EtherNetIPDevice Class:**
+
+- One CIPServer per device, listening on its allocated port
+- Tag store (`dict`) shared between data generator (writer) and CIP server (reader)
+- Background `_data_update_loop()` generates new data every `update_interval` seconds
+- `get_tag_data()` returns all tags in `{name: {type, value, count}}` format
+
+#### Device Types
+
+**ControlLogix PLC (`eip_controllogix_plc`):**
+
+- 10 tags: `ProcessValue`, `Setpoint`, `ControlOutput`, `Mode`, `HighAlarm`, `LowAlarm`, `Error`, `CycleTime`, `BatchCount`, `RunStatus`
+- PID control loop with mode switching (AUTO/MANUAL/CASCADE)
+- BatchCount increments when process is within tolerance
+
+**PowerFlex 755 Drive (`eip_powerflex_drive`):**
+
+- 10 tags: `OutputFrequency`, `OutputVoltage`, `OutputCurrent`, `MotorSpeed`, `Torque`, `DCBusVoltage`, `DriveTemp`, `FaultCode`, `RunStatus`, `AccelTime`
+- 4-state machine: Stopped → Forward → Reverse → Fault
+- Physics-based frequency ramping, voltage = freq × V/Hz, temperature exponential approach
+
+**CompactLogix I/O Module (`eip_io_module`):**
+
+- 6 tags: `DI_Word` (DINT[4]), `DO_Word` (DINT[4]), `AI_Channel` (REAL[8]), `AO_Channel` (REAL[4]), `ModuleStatus`, `SlotNumber`
+- DI bits flip at 5% probability per tick; DO mirrors DI at 30% lag
+- AI channels random-walk ±0.5%/tick clamped 0–100%; AO stable setpoints ±0.1% noise
+
+#### Configuration Example
+
+```yaml
+industrial_protocols:
+  ethernet_ip:
+    enabled: true
+    devices:
+      controllogix_plcs:
+        count: 1
+        port_start: 44818
+        device_template: "eip_controllogix_plc"
+        update_interval: 1.0
+        data_config:
+          process_value_range: [0, 100]
+          setpoint: 50.0
+          kp: 1.0
+          ki: 0.1
+          kd: 0.05
+```
+
+#### API Endpoints
+
+- `GET /ethernetip/connections` - List all CIP server endpoints, tag counts, session counts
+- `GET /ethernetip/devices/{id}/tags` - Current tag values for a device
 
 ---
 
@@ -433,6 +508,11 @@ industrial_protocols:
 
 - `GET /opcua/servers` - List all OPC-UA server endpoints and status
 - `GET /opcua/devices/{id}/nodes` - Current node values for a device
+
+**EtherNet/IP-Specific Endpoints:**
+
+- `GET /ethernetip/connections` - List all CIP server endpoints with session counts
+- `GET /ethernetip/devices/{id}/tags` - Current tag values for a device
 
 **Data Export:**
 
@@ -761,7 +841,6 @@ curl http://localhost:8080/devices | jq
 
 ### Protocols
 
-- ❌ Ethernet/IP (planned)
 - ❌ BLE/Bluetooth (planned)
 - ❌ CCTV/RTSP (planned)
 
@@ -797,7 +876,9 @@ universal-simulation-engine/
 │   ├── protocols/
 │   │   └── industrial/
 │   │       ├── modbus/              # Full Modbus implementation
-│   │       └── mqtt/                # Full MQTT + embedded broker
+│   │       ├── mqtt/                # Full MQTT + embedded broker
+│   │       ├── opcua/               # Full OPC-UA implementation
+│   │       └── ethernetip/          # Full EtherNet/IP CIP implementation
 │   ├── data_patterns/               # Realistic data generation
 │   ├── utils/                       # Logging, helpers
 │   └── web_interface/
@@ -913,6 +994,7 @@ universal-simulation-engine/
 - [x] Modbus TCP protocol (temperature, pressure, motor)
 - [x] MQTT protocol with embedded broker (sensors, meters, trackers)
 - [x] OPC-UA protocol (CNC machine, PLC controller, industrial robot)
+- [x] EtherNet/IP CIP protocol (ControlLogix PLC, PowerFlex drive, I/O module)
 - [x] Realistic data generation with industrial patterns
 - [x] REST API with 15+ endpoints
 - [x] Real-time data monitor web interface
@@ -932,7 +1014,7 @@ universal-simulation-engine/
 - [x] CI/CD integration
 - [x] Docker deployment
 - [x] Multi-device testing (1-100+ devices)
-- [x] Multi-protocol simulation (Modbus + MQTT + OPC-UA)
+- [x] Multi-protocol simulation (Modbus + MQTT + OPC-UA + EtherNet/IP)
 
 **Not Yet Ready for:**
 
@@ -968,11 +1050,11 @@ universal-simulation-engine/
 
 ---
 
-**Status: Production Ready for Modbus TCP + MQTT + OPC-UA** ✅
+**Status: Production Ready for Modbus TCP + MQTT + OPC-UA + EtherNet/IP** ✅
 
-**Version: 0.4.0**
+**Version: 0.5.0**
 
-**Last Updated: February 10, 2026**
+**Last Updated: February 24, 2026**
 
 ---
 

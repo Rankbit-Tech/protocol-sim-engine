@@ -22,7 +22,8 @@ class NetworkConfig(BaseModel):
         "modbus": [5020, 5500],
         "opcua": [4840, 4940],
         "mqtt": [1883, 1883],
-        "http": [3000, 3200]
+        "http": [3000, 3200],
+        "ethernet_ip": [44818, 44918],
     })
 
 class ModbusDeviceConfig(BaseModel):
@@ -81,11 +82,28 @@ class OPCUAConfig(BaseModel):
     devices: Dict[str, OPCUADeviceConfig] = Field(default_factory=dict)
 
 
+class EtherNetIPDeviceConfig(BaseModel):
+    """Configuration for EtherNet/IP devices."""
+    count: int = Field(gt=0, le=1000)
+    port_start: int = Field(ge=1024, le=65535)
+    device_template: str
+    locations: Optional[List[str]] = None
+    update_interval: float = Field(gt=0, default=1.0)
+    data_config: Optional[Dict[str, Any]] = None
+
+
+class EtherNetIPConfig(BaseModel):
+    """EtherNet/IP protocol configuration."""
+    enabled: bool = True
+    devices: Dict[str, EtherNetIPDeviceConfig] = Field(default_factory=dict)
+
+
 class IndustrialProtocolsConfig(BaseModel):
     """Industrial protocols configuration."""
     modbus_tcp: Optional[ModbusConfig] = None
     mqtt: Optional[MQTTConfig] = None
     opcua: Optional[OPCUAConfig] = None
+    ethernet_ip: Optional[EtherNetIPConfig] = None
 
 class SimulationConfig(BaseModel):
     """Global simulation settings."""
@@ -181,6 +199,8 @@ class ConfigParser:
                 enabled_protocols.append("mqtt")
             if self.config.industrial_protocols.opcua and self.config.industrial_protocols.opcua.enabled:
                 enabled_protocols.append("opcua")
+            if self.config.industrial_protocols.ethernet_ip and self.config.industrial_protocols.ethernet_ip.enabled:
+                enabled_protocols.append("ethernet_ip")
 
         return enabled_protocols
     
@@ -283,6 +303,15 @@ class ConfigParser:
             return self.config.industrial_protocols.opcua.devices
         return {}
 
+    def get_ethernet_ip_devices(self) -> Dict[str, EtherNetIPDeviceConfig]:
+        """Get EtherNet/IP device configurations."""
+        if (self.config and
+            self.config.industrial_protocols and
+            self.config.industrial_protocols.ethernet_ip and
+            self.config.industrial_protocols.ethernet_ip.enabled):
+            return self.config.industrial_protocols.ethernet_ip.devices
+        return {}
+
     def get_network_config(self) -> NetworkConfig:
         """Get network configuration."""
         return self.config.network if self.config else NetworkConfig()
@@ -307,6 +336,10 @@ class ConfigParser:
         if protocol == "opcua":
             opcua_config = self.config.industrial_protocols.opcua
             return opcua_config is not None and opcua_config.enabled
+
+        if protocol == "ethernet_ip":
+            eip_config = self.config.industrial_protocols.ethernet_ip
+            return eip_config is not None and eip_config.enabled
 
         return False
     

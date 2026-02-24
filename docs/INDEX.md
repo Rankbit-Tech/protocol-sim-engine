@@ -2,7 +2,7 @@
 
 **Complete documentation for the Universal Simulation Engine**
 
-Last Updated: February 10, 2026
+Last Updated: February 24, 2026
 
 ---
 
@@ -30,6 +30,10 @@ Last Updated: February 10, 2026
   - CNC machine monitors, PLC process controllers, industrial robots
   - Dedicated OPC-UA servers with structured address spaces
   - Compatible with standard OPC-UA clients
+- [EtherNet/IP Protocol](protocols/ethernetip/README.md) - Allen-Bradley CIP simulation
+  - ControlLogix PLC, PowerFlex 755 drive, CompactLogix I/O module
+  - Full CIP-over-TCP server (RegisterSession, ReadTag, WriteTag, MultipleServicePacket)
+  - Compatible with pycomm3, Ignition, FactoryTalk, and any EtherNet/IP client
 
 #### Configuration Reference
 
@@ -170,6 +174,11 @@ Last Updated: February 10, 2026
   - Hierarchical address space (DeviceSet/Identification/Parameters/Status)
   - `asyncua`-based servers, compatible with standard OPC-UA clients
   - Realistic data patterns (tool wear, PID control, robot cycles)
+- **EtherNet/IP Protocol** - Full CIP-over-TCP simulation (v0.5.0)
+  - ControlLogix PLC, PowerFlex 755 drive, CompactLogix I/O module
+  - Real CIP server with RegisterSession, ReadTag, WriteTag, MultipleServicePacket
+  - 4-state PowerFlex drive simulator with physics-based frequency/voltage/torque
+  - Compatible with pycomm3 and all standard EtherNet/IP clients
 - **Configuration System** - YAML-based configuration
 - **REST API** - 15+ endpoints for monitoring/control
 - **React Frontend** - Modern responsive dashboard (React + TypeScript + shadcn/ui)
@@ -187,7 +196,6 @@ Last Updated: February 10, 2026
 
 - Bluetooth/BLE simulation
 - CCTV/RTSP streaming
-- Ethernet/IP protocol
 - Kubernetes deployment templates
 - Cloud integration (AWS, Azure, GCP)
 
@@ -235,4 +243,4 @@ Last Updated: February 10, 2026
 
 **Happy Simulating! 🚀**
 
-_This documentation is continuously updated. Last update: February 10, 2026_
+_This documentation is continuously updated. Last update: February 24, 2026_

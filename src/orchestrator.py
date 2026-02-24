@@ -16,6 +16,7 @@ from .protocols.industrial.modbus.modbus_simulator import ModbusDeviceManager
 from .protocols.industrial.mqtt.mqtt_simulator import MQTTDeviceManager
 from .protocols.industrial.mqtt.mqtt_broker import EmbeddedMQTTBroker
 from .protocols.industrial.opcua.opcua_simulator import OPCUADeviceManager
+from .protocols.industrial.ethernetip.ethernetip_simulator import EtherNetIPDeviceManager
 
 logger = structlog.get_logger(__name__)
 
@@ -141,7 +142,21 @@ class SimulationOrchestrator:
                 self.active_protocols.add("opcua")
             else:
                 logger.warning("OPC-UA manager initialization failed - OPC-UA devices will not be available")
-        
+
+        # Initialize EtherNet/IP manager if enabled
+        if (self.config.industrial_protocols.ethernet_ip and
+                self.config.industrial_protocols.ethernet_ip.enabled):
+            logger.info("Initializing EtherNet/IP protocol manager...")
+            eip_manager = EtherNetIPDeviceManager(
+                self.config.industrial_protocols.ethernet_ip,
+                self.port_manager,
+            )
+            if await eip_manager.initialize():
+                self.device_managers["ethernet_ip"] = eip_manager
+                self.active_protocols.add("ethernet_ip")
+            else:
+                logger.warning("EtherNet/IP manager initialization failed - EtherNet/IP devices will not be available")
+
     async def _validate_allocation_plan(self) -> bool:
         """Validate that all devices can be allocated without port conflicts."""
         allocation_plan = {}
@@ -389,6 +404,8 @@ class SimulationOrchestrator:
                     return device.get_last_message()
                 elif protocol_name == "opcua":
                     return device.get_node_data()
+                elif protocol_name == "ethernet_ip":
+                    return device.get_tag_data()
         return None
     
     def get_protocol_summary(self) -> Dict[str, Dict]:
